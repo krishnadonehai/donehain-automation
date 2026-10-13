@@ -1,0 +1,80 @@
+{
+  "range": {
+    "from": "2026-10-01",
+    "to": "2026-10-09"
+  },
+  "records": [
+    {
+      "employeeId": "101132",
+      "employeeName": "Krishna Mandal",
+      "date": "09-10-2026",
+      "type": "Visit",
+      "hq": "Connaught Place",
+      "cluster": "Paharganj",
+      "status": "Approved"
+    },
+    {
+      "employeeId": "1003",
+      "employeeName": "Milind Srivastava",
+      "date": "09-10-2026",
+      "type": "Visit",
+      "hq": "Saket",
+      "cluster": "Malviya Nagar",
+      "status": "Approved"
+    },
+    {
+      "employeeId": "101132",
+      "employeeName": "Krishna Mandal",
+      "date": "08-10-2026",
+      "type": "Visit",
+      "hq": "Sector 62",
+      "cluster": "Indirapuram",
+      "status": "Approved"
+    },
+    {
+      "employeeId": "1003",
+      "employeeName": "Milind Srivastava",
+      "date": "08-10-2026",
+      "type": "Visit",
+      "hq": "Saket",
+      "cluster": "Hauz Khas",
+      "status": "Approved"
+    },
+    {
+      "employeeId": "1003",
+      "employeeName": "Milind Srivastava",
+      "date": "05-10-2026",
+      "type": "Visit",
+      "hq": "Saket",
+      "cluster": "Malviya Nagar",
+      "status": "Approved"
+    },
+    {
+      "employeeId": "1003",
+      "employeeName": "Milind Srivastava",
+      "date": "03-10-2026",
+      "type": "Visit",
+      "hq": "Saket",
+      "cluster": "Malviya Nagar",
+      "status": "Approved"
+    },
+    {
+      "employeeId": "1003",
+      "employeeName": "Milind Srivastava",
+      "date": "02-10-2026",
+      "type": "Visit",
+      "hq": "Saket",
+      "cluster": "Malviya Nagar",
+      "status": "Approved"
+    },
+    {
+      "employeeId": "1003",
+      "employeeName": "Milind Srivastava",
+      "date": "01-10-2026",
+      "type": "Visit",
+      "hq": "Saket",
+      "cluster": "Malviya Nagar",
+      "status": "Approved"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "name": "donehai-automation",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test --project=chromium",
+    "test:login": "playwright test --project=setup",
+    "test:attendance": "playwright test tests/attendance --project=chromium",
+    "test:reuse": "playwright test tests/attendance --project=chromium --no-deps",
+    "report": "playwright show-report",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^22.0.0",
+    "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  }
+}
