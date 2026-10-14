@@ -1,12 +1,34 @@
+
 {
   "date": "2026-10-13",
   "employees": [
-    { "id": "TEST-001", "name": "Test One", "designation": "Manager", "status": "Absent" },
-    { "id": "TEST-003", "name": "Test Three", "designation": "MR", "status": "Absent" },
-    { "id": "TEST-004", "name": "Test Four", "designation": "MR", "status": "Absent" }
+    {
+      "id": "TEST-001",
+      "name": "Test One",
+      "designation": "Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "TEST-003",
+      "name": "Test Three",
+      "designation": "MR",
+      "status": "Absent"
+    },
+    {
+      "id": "TEST-004",
+      "name": "Test Four",
+      "designation": "MR",
+      "status": "Absent"
+    }
   ],
   "searchQuery": "mr",
-  "searchExpectedIds": ["TEST-003", "TEST-004"],
-  "departments": ["Management", "Sales"],
+  "searchExpectedIds": [
+    "TEST-003",
+    "TEST-004"
+  ],
+  "departments": [
+    "Management",
+    "Sales"
+  ],
   "noMatchQuery": "zz_no_employee_qa_748159"
 }

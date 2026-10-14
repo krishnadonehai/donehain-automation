@@ -9,6 +9,6 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["**/*.ts"],
+  "include": ["**/*.ts", "tests/attendance/attendance.spec.ts"],
   "exclude": ["node_modules"]
 }

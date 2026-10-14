@@ -14,3 +14,9 @@
 
 Results: TypeScript passed; Playwright discovered 11 tests (one setup and ten Attendance).
 run  npx.cmd playwright test tests/attendance --project=chromium  
+
+npx.cmd playwright test tests/attendance --project=chromium 
+
+npx.cmd playwright test auth.setup.ts --project=setup
+
+ npx.cmd playwright show-report
