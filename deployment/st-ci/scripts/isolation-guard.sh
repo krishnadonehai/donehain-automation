@@ -90,17 +90,9 @@ guard_isolation() {
     fail "set ST_CANDIDATE_MIGRATIONS_ALLOWED=1 or ST_CANDIDATE_DB_SEED_ONLY=1 after validating isolated DB init"
   fi
 
-  local vol
-  while IFS= read -r vol; do
-    [ -z "$vol" ] && continue
-    if docker volume inspect "$vol" >/dev/null 2>&1; then
-      local proj
-      proj="$(docker volume inspect --format '{{index .Labels "com.docker.compose.project"}}' "$vol" 2>/dev/null || true)"
-      if [ "$proj" = "$ST_LIVE_COMPOSE_PROJECT" ]; then
-        fail "refusing to continue: protected live volume exists and is labeled with live project: $vol"
-      fi
-    fi
-  done < <(split_csv "$ST_LIVE_PROTECTED_VOLUMES")
+  # Live protected volumes are expected to exist. Isolation is enforced by
+  # candidate-only Compose project naming and the explicit live-resource guards
+  # above; existence of a protected live volume alone is not a deployment error.
 
   log "isolation guard passed for project $ST_CANDIDATE_COMPOSE_PROJECT"
 }

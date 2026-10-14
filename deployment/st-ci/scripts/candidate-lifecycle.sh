@@ -223,6 +223,18 @@ cmd_deploy() {
   check_candidate_seed_dir
 
   export_candidate_env "$project"
+
+  # Fail closed if any candidate named volume resolves to a protected live volume.
+  local compose_json volume_name protected_volume
+  compose_json="$(candidate_compose "$project" config --format json)" || fail "cannot resolve candidate Compose config"
+  while IFS= read -r volume_name; do
+    [ -n "$volume_name" ] || continue
+    while IFS= read -r protected_volume; do
+      [ -n "$protected_volume" ] || continue
+      [ "$volume_name" != "$protected_volume" ] || fail "candidate volume collides with protected live volume: $volume_name"
+    done < <(printf '%s' "$ST_LIVE_PROTECTED_VOLUMES" | tr ',' '\\n')
+  done < <(printf '%s' "$compose_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); [print(v.get("name", k)) for k,v in d.get("volumes", {}).items()]')
+
   mkdir -p "$STATE_DIR"
   local m
   m="$(manifest_path "$project")"
