@@ -1,3 +1,4 @@
+
 name: DoneHai Playwright CI
 
 on:
@@ -52,12 +53,16 @@ jobs:
           fi
 
           echo "BASE_URL is configured."
-      
+
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
       - name: Run Attendance Tests
         run: npx playwright test tests/attendance/ --project=chromium
+
+      - name: Publish Test Results
+        if: always()
+        run: node scripts/github-summary.cjs
 
       - name: Upload Playwright report
         if: always()

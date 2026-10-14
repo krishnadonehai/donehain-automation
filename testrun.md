@@ -16,4 +16,4 @@ npx.cmd playwright test tests/attendance/monthly.smoke.spec.ts --project=chromiu
 
 
 For all Attendance tests:
-npx.cmd playwright test tests/attendance/ --project=chromium --no-deps --headed
+npx.cmd playwright test tests/attendance/ --project=chromium --no-deps --headed  (n0-deps not login again and agin with otp use fixed otp)

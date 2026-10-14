@@ -16,7 +16,13 @@ export default defineConfig({
   retries: 0,
   maxFailures: 0,
   forbidOnly: !!process.env.CI,
-  reporter: [['list'], ['html', { open: 'never' }]],
+
+ 
+  reporter: [
+  ['list'],
+  ['html', { open: 'never' }],
+  ['json', { outputFile: 'test-results/results.json' }],
+],
   use: {
     baseURL,
     browserName: 'chromium',
