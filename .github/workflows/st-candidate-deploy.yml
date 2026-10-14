@@ -87,8 +87,15 @@ jobs:
         env:
           ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
           ST_CANDIDATE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          APP_REPO_TOKEN: ${{ secrets.APP_REPO_TOKEN }}
         run: |
           set -uo pipefail
+          : "${APP_REPO_TOKEN:?APP_REPO_TOKEN secret is required}"
+          askpass="$RUNNER_TEMP/st-git-askpass"
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  *Username*) printf "%s\n" "x-access-token" ;;' '  *Password*) printf "%s\n" "$APP_REPO_TOKEN" ;;' '  *) exit 1 ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          trap 'rm -f "$askpass"' EXIT
+          export GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0
           out_file="$RUNNER_TEMP/candidate-deploy.out"
           bash deployment/st-ci/scripts/candidate-lifecycle.sh deploy \
             "${{ needs.validate.outputs.app_commit_sha }}" \
