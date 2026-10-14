@@ -481,7 +481,7 @@ report_docker() {
   config_files={{index .Config.Labels "com.docker.compose.project.config_files"}}
   networks={{range $k,$v := .NetworkSettings.Networks}}{{$k}}({{$v.IPAddress}}) {{end}}
   ports={{range $p,$b := .NetworkSettings.Ports}}{{$p}}->{{range $b}}{{.HostIp}}:{{.HostPort}} {{end}}{{end}}
-  mounts={{range .Mounts}}{{.Type}}:{{if .Name}}{{.Name}}{{else}}{{.Source}}{{end}}->{{.Destination}}{{if not .RW}}(ro){{end}} {{end}}' "$id" 2>&1
+  mounts={{range .Mounts}}{{.Type}}:{{if eq .Type "volume"}}{{.Name}}{{else if eq .Type "bind"}}{{.Source}}{{else}}-{{end}}->{{.Destination}}{{if not .RW}}(ro){{end}} {{end}}' "$id" 2>&1
   done
 
   section "DOCKER - NETWORKS"
@@ -493,7 +493,8 @@ report_docker() {
 
   section "DOCKER - VOLUMES"
   dk volume ls -q 2>/dev/null | while read -r v; do
-    dk volume inspect --format '{{.Name}} driver={{.Driver}} project={{index .Labels "com.docker.compose.project"}} mountpoint={{.Mountpoint}}' "$v" 2>&1
+    printf '%s ' "$v"
+    dk volume inspect --format 'driver={{.Driver}} project={{index .Labels "com.docker.compose.project"}} mountpoint={{.Mountpoint}}' "$v" 2>&1
   done
 
   section "DOCKER - IMAGES (deployment / donehai)"
