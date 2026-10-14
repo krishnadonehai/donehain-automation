@@ -99,7 +99,8 @@ candidate_compose() {
 }
 
 check_candidate_seed_dir() {
-  : "${ST_CANDIDATE_SEED_DIR:?ST_CANDIDATE_SEED_DIR required in profile (fixed-OTP test account SQL)}"
+  # Default: the candidate-only seed committed in the app repo at the pinned SHA.
+  ST_CANDIDATE_SEED_DIR="${ST_CANDIDATE_SEED_DIR:-$ST_APP_WORKTREE/deployment/st-ci/candidate-seeds}"
   [ -d "$ST_CANDIDATE_SEED_DIR" ] || fail "ST_CANDIDATE_SEED_DIR is not a directory: $ST_CANDIDATE_SEED_DIR"
   if ! find "$ST_CANDIDATE_SEED_DIR" -maxdepth 1 -type f -name '*.sql' | grep -q .; then
     fail "no *.sql in ST_CANDIDATE_SEED_DIR; the fixed-OTP test accounts (test1..test5@donehai.com) must be seeded"
@@ -215,11 +216,11 @@ cmd_deploy() {
 
   ST_CANDIDATE_COMPOSE_PROJECT_OVERRIDE="$project" ST_CANDIDATE_PROFILE="$ST_CANDIDATE_PROFILE" \
     bash "$SCRIPT_DIR/isolation-guard.sh" || fail "isolation guard failed"
-  check_candidate_seed_dir
 
   checkout_app_exact_sha "$app_sha"
   [ -f "$ST_APP_WORKTREE/$ST_APP_CANDIDATE_COMPOSE_FILE" ] \
     || fail "missing $ST_APP_CANDIDATE_COMPOSE_FILE in app repo at $app_sha (app-side change required)"
+  check_candidate_seed_dir
 
   export_candidate_env "$project"
   mkdir -p "$STATE_DIR"

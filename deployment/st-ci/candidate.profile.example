@@ -47,9 +47,10 @@ ST_APP_CANDIDATE_COMPOSE_FILE="deployment/docker-compose.st-candidate.yml"
 # Keep FIXED_OTP_EMAIL with all fixed-OTP accounts (test1..test5@donehai.com).
 ST_APP_CANDIDATE_ENV_FILE=""
 
-# Directory of *.sql applied last on the fresh candidate DB. Must create the fixed-OTP
-# accounts used by Playwright (deploy fails if it contains no *.sql).
-ST_CANDIDATE_SEED_DIR="/etc/donehai-st/candidate-seeds"
+# Directory of *.sql applied last on the fresh candidate DB (deploy fails if it has no *.sql).
+# Leave empty to use the app repo's deployment/st-ci/candidate-seeds at the pinned SHA, which
+# creates the fixed-OTP accounts test1..test5@donehai.com in a synthetic QA org.
+ST_CANDIDATE_SEED_DIR=""
 ST_CANDIDATE_DB_INIT_STRICT="false"
 ST_CANDIDATE_DB_LOAD_GEO_SEED="true"
 # Deploy fails unless the DB init result is status=ok; set 1 only to inspect a failing init.

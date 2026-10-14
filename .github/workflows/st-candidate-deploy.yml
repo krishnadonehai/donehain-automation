@@ -17,10 +17,10 @@ on:
         type: string
         default: DoneHai/DoneHai-Feature
       playwright_path:
-        description: Optional test path; empty runs the full chromium suite
+        description: Test path for the gate (tests/tour needs ST-captured data and is not candidate-ready)
         required: false
         type: string
-        default: ""
+        default: tests/attendance/
 
 concurrency:
   group: st-candidate-deploy
@@ -171,11 +171,11 @@ jobs:
           ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
         run: bash deployment/st-ci/scripts/candidate-lifecycle.sh verify-otp-account "$TEST_IDENTIFIER"
 
-      - name: Run Playwright suite against candidate (includes OTP login setup)
+      - name: Run Playwright gate against candidate (includes OTP login setup)
         id: playwright
         shell: bash
         env:
-          PLAYWRIGHT_PATH: ${{ inputs.playwright_path || github.event.client_payload.playwright_path || '' }}
+          PLAYWRIGHT_PATH: ${{ inputs.playwright_path || github.event.client_payload.playwright_path || 'tests/attendance/' }}
         run: |
           set -euo pipefail
           args=(--config=playwright.candidate.config.ts --project=chromium)
