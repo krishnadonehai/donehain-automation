@@ -21,22 +21,29 @@ export default defineConfig({
     baseURL,
     browserName: 'chromium',
     headless: process.env.HEADLESS === 'true',
-   viewport: { width: 1920, height: 1080 },
-    launchOptions: {
-      args: ['--start-maximized'],
-      slowMo: Number(process.env.SLOW_MO || 700),
-    },
+  viewport: null,
+launchOptions: {
+  args: ['--start-maximized'],
+  slowMo: Number(process.env.SLOW_MO ?? 700),
+},
     acceptDownloads: true,
     screenshot: 'off', // A screenshot is attached by hooks before auth checkpointing.
     video: { mode: 'on', size: { width: 1920, height: 1080 } },
     trace: 'on',
   },
+  
   projects: [
-    { name: 'setup', testMatch: /auth\.setup\.ts/ },
-    {
-      name: 'chromium',
-      testMatch: '**/*.spec.ts',
-      dependencies: ['setup'],
+  {
+    name: 'setup',
+    testMatch: /auth\.setup\.ts/,
+  },
+  {
+    name: 'chromium',
+    testMatch: '**/*.spec.ts',
+    use: {
+      storageState: 'playwright/.auth/user.json',
     },
-  ],
+    dependencies: ['setup'],
+  },
+],
 });
