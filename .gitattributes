@@ -1,2 +1,4 @@
 deployment/st-ci/scripts/discover.sh text eol=lf
+deployment/st-ci/scripts/**/*.sh text eol=lf
 deployment/st-ci/README.md text eol=lf
+deployment/st-ci/DEPLOYMENT.md text eol=lf

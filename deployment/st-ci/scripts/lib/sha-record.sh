@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Record immutable deployment metadata (no secrets).
+set -u
+
+_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=log.sh
+source "$_LIB_DIR/log.sh"
+
+# write_deployment_manifest <path> <app_repo> <app_sha> <automation_sha> <candidate_id>
+#   [traffic_switch=false] [db_init_status=unknown] [playwright_result=pending]
+# Also writes <path without .json>.env (shell-readable copy used by later lifecycle steps).
+write_deployment_manifest() {
+  local path="$1"
+  local app_repo="$2"
+  local app_sha="$3"
+  local automation_sha="$4"
+  local candidate_id="$5"
+  local traffic_switch="${6:-false}"
+  local db_init_status="${7:-unknown}"
+  local playwright_result="${8:-pending}"
+
+  mkdir -p "$(dirname "$path")"
+  umask 077
+  cat >"$path" <<EOF
+{
+  "recorded_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "app_repository": "$app_repo",
+  "app_commit_sha": "$app_sha",
+  "automation_commit_sha": "$automation_sha",
+  "candidate_id": "$candidate_id",
+  "db_init_status": "$db_init_status",
+  "playwright_result": "$playwright_result",
+  "traffic_switch_requested": $traffic_switch
+}
+EOF
+  cat >"${path%.json}.env" <<EOF
+M_APP_REPOSITORY='$app_repo'
+M_APP_COMMIT_SHA='$app_sha'
+M_AUTOMATION_COMMIT_SHA='$automation_sha'
+M_CANDIDATE_ID='$candidate_id'
+M_TRAFFIC_SWITCH='$traffic_switch'
+M_DB_INIT_STATUS='$db_init_status'
+M_PLAYWRIGHT_RESULT='$playwright_result'
+EOF
+  log "wrote deployment manifest (no secrets): $path"
+}
+
+validate_full_sha() {
+  local sha="$1"
+  local label="$2"
+  if [[ ! "$sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    log_err "$label must be a full 40-character git commit SHA; got length ${#sha}"
+    return 1
+  fi
+}

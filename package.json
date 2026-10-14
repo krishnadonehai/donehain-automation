@@ -8,7 +8,8 @@
     "test:attendance": "playwright test tests/attendance --project=chromium",
     "test:reuse": "playwright test tests/attendance --project=chromium --no-deps",
     "report": "playwright show-report",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:st-ci": "bash deployment/st-ci/scripts/self-test.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.64.0",

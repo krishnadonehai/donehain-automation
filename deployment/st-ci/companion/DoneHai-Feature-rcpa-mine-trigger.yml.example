@@ -1,0 +1,33 @@
+# Install as .github/workflows/st-rcpa-mine-candidate-deploy.yml in DoneHai-Feature.
+# Uses a narrowly scoped token (ST_APP_REPO_DISPATCH_TOKEN) to dispatch the
+# donehain-automation pipeline with the exact commit SHA — never a branch tip.
+
+name: Trigger ST candidate deploy
+
+on:
+  push:
+    branches: [rcpa-mine]
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch-automation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch donehain-automation ST candidate workflow
+        env:
+          DISPATCH_TOKEN: ${{ secrets.ST_APP_REPO_DISPATCH_TOKEN }}
+          AUTOMATION_REPO: DoneHai/donehain-automation
+        run: |
+          set -euo pipefail
+          sha="${{ github.sha }}"
+          if ! [[ "$sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "Unexpected github.sha format."
+            exit 1
+          fi
+          curl -fsS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${DISPATCH_TOKEN}" \
+            "https://api.github.com/repos/${AUTOMATION_REPO}/dispatches" \
+            -d "{\"event_type\":\"st-candidate-deploy\",\"client_payload\":{\"app_commit_sha\":\"${sha}\",\"app_repository\":\"${{ github.repository }}\"}}"

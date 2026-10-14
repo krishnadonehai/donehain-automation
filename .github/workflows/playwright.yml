@@ -38,20 +38,11 @@ jobs:
 
       - name: Prepare environment file
         shell: bash
-        run: |
-          if [ ! -f .env.example ]; then
-            echo "Error: .env.example not found."
-            exit 1
-          fi
-
-          cp .env.example .env
-
-          if [ -z "$BASE_URL" ]; then
-            echo "Error: BASE_URL GitHub Secret is missing."
-            exit 1
-          fi
-
-          echo "BASE_URL is configured."
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+          TEST_IDENTIFIER: ${{ secrets.TEST_IDENTIFIER }}
+          TEST_OTP: ${{ secrets.TEST_OTP }}
+        run: bash deployment/st-ci/scripts/write-playwright-env.sh .
       
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium

@@ -1,6 +1,8 @@
 # ST CI/CD - Phase 0 discovery
 
-`scripts/discover.sh` is a read-only inspection of the DoneHai ST VPS. Its output decides how the candidate environment and the zero-downtime proxy switch will be built. No other CI/CD files exist yet.
+`scripts/discover.sh` is a read-only inspection of the DoneHai ST VPS. Its output decides how the candidate environment and the zero-downtime proxy switch will be built.
+
+For the Playwright-gated candidate deploy workflow, scripts, and safety flags, see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 
 ## What it does and does not do
 
