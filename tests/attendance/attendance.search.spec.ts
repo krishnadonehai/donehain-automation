@@ -3,7 +3,7 @@ import { test, expect } from '../../fixtures/auth';
 import { AttendancePage } from '../../pages/AttendancePage';
 import data from '../../data/attendance.json';
 
-test.describe('Attendance Search Tests', () => {
+test.describe('Attendance Search Tests @regression', () => {
   test.beforeEach(async ({ page }) => {
     const attendance = new AttendancePage(page);
 

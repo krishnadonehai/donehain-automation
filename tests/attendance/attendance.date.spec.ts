@@ -7,7 +7,7 @@ import {
   daysBefore,
 } from '../../utils/dates';
 
-test.describe('Attendance Date Tests', () => {
+test.describe('Attendance Date Tests @regression', () => {
   
   test('Date picker opens and closes', async ({ page }) => {
     const attendance = new AttendancePage(page);

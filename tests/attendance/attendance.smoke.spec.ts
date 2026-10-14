@@ -2,7 +2,7 @@
 import { test, expect } from '../../fixtures/auth';
 import { AttendancePage } from '../../pages/AttendancePage';
 
-test.describe('Attendance Smoke Tests', () => {
+test.describe('Attendance Smoke Tests @smoke @regression', () => {
   test('Attendance page loads successfully', async ({ page }) => {
     const attendance = new AttendancePage(page);
 

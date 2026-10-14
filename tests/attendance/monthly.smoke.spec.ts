@@ -3,7 +3,7 @@ import { test, expect } from '../../fixtures/auth';
 import { MonthlyAttendancePage } from '../../pages/MonthlyAttendancePage';
 import { stat } from 'node:fs/promises';
 
-test.describe('Monthly Attendance Export Tests', () => {
+test.describe('Monthly Smoke Tests @smoke @regression', () => {
   test('Export Payroll Excel downloads successfully', async ({ page }, testInfo) => {
     const monthly = new MonthlyAttendancePage(page);
 
