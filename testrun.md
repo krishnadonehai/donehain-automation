@@ -3,7 +3,9 @@ npx.cmd playwright test tests/attendance/ --project=chromium --headed
 
 
 This runs all five test files: Smoke, Search, Filters, Date, and Export.
+
 2. Run all tests without opening the browser (CI/CD mode)
+
 npx.cmd playwright test tests/attendance/ --project=chromium
 
 Step 3 — Run without repeating login
@@ -17,3 +19,9 @@ npx.cmd playwright test tests/attendance/monthly.smoke.spec.ts --project=chromiu
 
 For all Attendance tests:
 npx.cmd playwright test tests/attendance/ --project=chromium --no-deps --headed  (n0-deps not login again and agin with otp use fixed otp)
+
+
+
+///////////////////////////////////
+
+npx.cmd playwright test tests/auth.setup.ts --project=setup --headed (LOGIN COMMAND)

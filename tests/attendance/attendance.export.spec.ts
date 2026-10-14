@@ -3,7 +3,7 @@ import { test, expect } from '../../fixtures/auth';
 import { AttendancePage } from '../../pages/AttendancePage';
 import { stat, readFile } from 'node:fs/promises';
 
-test.describe('Attendance Export Tests', () => {
+test.describe('Attendance Export Tests @regression', () => {
   test('Attendance CSV report downloads successfully', async ({ page }, testInfo) => {
     const attendance = new AttendancePage(page);
 
