@@ -201,8 +201,9 @@ jobs:
           result=failed
           [ "$PW_OUTCOME" = "success" ] && result=passed
           echo "playwright_result=$result" >> "$GITHUB_OUTPUT"
+          record_rc=0
           bash deployment/st-ci/scripts/candidate-lifecycle.sh record-result \
-            "${{ needs.deploy-candidate.outputs.candidate_id }}" "$result" || true
+            "${{ needs.deploy-candidate.outputs.candidate_id }}" "$result" || record_rc=$?
           mkdir -p deployment-record
           cat > deployment-record/deployment-record.json <<EOF
           {
@@ -223,8 +224,12 @@ jobs:
             echo "| App | \`${{ needs.validate.outputs.app_repository }}@${{ needs.validate.outputs.app_commit_sha }}\` |"
             echo "| Automation | \`${{ github.repository }}@${{ needs.validate.outputs.automation_commit_sha }}\` |"
             echo "| Candidate | \`${{ needs.deploy-candidate.outputs.candidate_id }}\` |"
-            echo "| DB init | ${{ needs.deploy-candidate.outputs.db_init_status }} |"
+            echo "| DB schema gate | ${{ needs.deploy-candidate.outputs.db_init_status }} |"
           } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$record_rc" -ne 0 ]; then
+            echo "::error::Failed to record the Playwright result in the candidate manifest (exit $record_rc)."
+            exit "$record_rc"
+          fi
 
       - name: Upload deployment record
         if: always()

@@ -86,8 +86,21 @@ guard_isolation() {
     fail "ST_CANDIDATE_SIDE_EFFECTS_SUPPRESSED must be 1 (external webhooks/SMS/email/payments disabled for candidate)"
   fi
 
-  if [ "${ST_CANDIDATE_MIGRATIONS_ALLOWED:-0}" != "1" ] && [ "${ST_CANDIDATE_DB_SEED_ONLY:-0}" != "1" ]; then
-    fail "set ST_CANDIDATE_MIGRATIONS_ALLOWED=1 or ST_CANDIDATE_DB_SEED_ONLY=1 after validating isolated DB init"
+  # Migrations are applied manually on ST and production; the pipeline never runs them.
+  if [ "${ST_CANDIDATE_MIGRATIONS_ALLOWED:-0}" != "0" ] || [ "${ST_CANDIDATE_DB_SEED_ONLY:-0}" != "0" ]; then
+    fail "ST_CANDIDATE_MIGRATIONS_ALLOWED / ST_CANDIDATE_DB_SEED_ONLY must be 0: migrations and seeds are a manual prerequisite, never run by the pipeline"
+  fi
+
+  local baseline="${ST_CANDIDATE_DB_BASELINE_VOLUME:-}" protected
+  if [ -n "$baseline" ]; then
+    case "$baseline" in
+      "${ST_LIVE_COMPOSE_PROJECT}"_*) fail "ST_CANDIDATE_DB_BASELINE_VOLUME ($baseline) belongs to the live compose project" ;;
+      donehai-candidate-*_db-data) fail "ST_CANDIDATE_DB_BASELINE_VOLUME ($baseline) is a per-run candidate volume" ;;
+    esac
+    while IFS= read -r protected; do
+      [ -n "$protected" ] && [ "$baseline" = "$protected" ] \
+        && fail "ST_CANDIDATE_DB_BASELINE_VOLUME ($baseline) is a protected live volume"
+    done < <(split_csv "$ST_LIVE_PROTECTED_VOLUMES")
   fi
 
   # Live protected volumes are expected to exist. Isolation is enforced by

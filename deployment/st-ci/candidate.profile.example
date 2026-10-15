@@ -9,7 +9,7 @@ ST_LIVE_API_PORT="3001"
 ST_LIVE_SERVER_PORT="3000"
 
 # Placeholder for the isolation guard; `deploy` always uses a unique
-# donehai-candidate-<short_sha>-<run_id> project (fresh volumes => fresh DB init).
+# donehai-candidate-<short_sha>-<run_id> project (fresh, project-scoped volumes).
 ST_CANDIDATE_COMPOSE_PROJECT="donehai-candidate-CHANGE_ME"
 ST_CANDIDATE_WEB_PORT="18080"
 ST_CANDIDATE_API_PORT="13001"          # gateway (exported as CANDIDATE_GATEWAY_PORT)
@@ -33,10 +33,20 @@ ST_CANDIDATE_KAFKA_CONSUMER_GROUP_PREFIX="candidate-st"
 # External side effects must be disabled for the candidate stack (app env / compose overrides).
 ST_CANDIDATE_SIDE_EFFECTS_SUPPRESSED="1"
 
-# Candidate DB init runs only inside the fresh candidate volume
-# (DoneHai-Feature deployment/st-ci/CANDIDATE_DATABASE.md). Set to 1 once accepted.
+# Migrations are applied MANUALLY on ST and production. The pipeline never runs migrations,
+# seeds, schema dumps or Local.sql; both flags must stay 0 (the isolation guard enforces it).
 ST_CANDIDATE_MIGRATIONS_ALLOWED="0"
 ST_CANDIDATE_DB_SEED_ONLY="0"
+
+# Manually migrated candidate baseline volume (DoneHai-Feature deployment/st-ci/CANDIDATE_DATABASE.md,
+# "Manual prerequisite"). Must carry label com.donehai.candidate-db-baseline=true; it is copied
+# read-only into each run's own volume and never modified or removed. Empty => bootstrap-only
+# candidate DB, and deploy stops at the schema gate (status=not_migrated) before E2E.
+ST_CANDIDATE_DB_BASELINE_VOLUME="donehai-candidate-db-baseline"
+
+# Manifest directory: must persist across jobs and be writable by the runner user.
+# Default: ${XDG_STATE_HOME:-$HOME/.local/state}/donehai-st/deployments
+# ST_DEPLOY_STATE_DIR="/home/<runner-user>/.local/state/donehai-st/deployments"
 
 # App repository on VPS (from discover.sh LIVE REPOSITORY). Builds use a detached worktree
 # at the exact requested SHA; the live checkout is never switched.
@@ -47,14 +57,6 @@ ST_APP_CANDIDATE_COMPOSE_FILE="deployment/docker-compose.st-candidate.yml"
 # Keep FIXED_OTP_EMAIL with all fixed-OTP accounts (test1..test5@donehai.com).
 ST_APP_CANDIDATE_ENV_FILE=""
 
-# Directory of *.sql applied last on the fresh candidate DB (deploy fails if it has no *.sql).
-# Leave empty to use the app repo's deployment/st-ci/candidate-seeds at the pinned SHA, which
-# creates the fixed-OTP accounts test1..test5@donehai.com in a synthetic QA org.
-ST_CANDIDATE_SEED_DIR=""
-ST_CANDIDATE_DB_INIT_STRICT="false"
-ST_CANDIDATE_DB_LOAD_GEO_SEED="true"
-# Deploy fails unless the DB init result is status=ok; set 1 only to inspect a failing init.
-ST_CANDIDATE_ALLOW_DB_INIT_ERRORS="0"
 ST_CANDIDATE_WAIT_TIMEOUT="2700"
 
 # Active ST stack identifier for rollback (container or compose project name prefix).

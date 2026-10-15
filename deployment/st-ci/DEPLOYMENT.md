@@ -11,8 +11,11 @@ flowchart TD
   A[Push to rcpa-mine in DoneHai-Feature] --> B[repository_dispatch to donehain-automation]
   B --> C[Record app + automation SHAs]
   C --> D[Isolation guard]
-  D --> E[Build/start candidate stack]
-  E --> F[Candidate health]
+  D --> E[Build images; clone manual DB baseline; start database + redis]
+  E --> S{Schema gate: manual prerequisite recorded and fresh?}
+  S -->|no| H
+  S -->|yes| E2[Start app services]
+  E2 --> F[Candidate health]
   F --> G[Playwright attendance suite]
   G -->|fail| H[Cleanup candidate only]
   G -->|pass| I{ST_TRAFFIC_SWITCH_ENABLED?}
@@ -66,7 +69,20 @@ Jobs `deploy-candidate`, `playwright-gate`, and `promote-or-cleanup` require a *
    - Ports collide with live ST (8080, 3001, 3000, …).
    - Live DB/Redis/Kafka reuse flags are set.
    - Side-effect suppression flag is not `1`.
-   - DB init strategy (`ST_CANDIDATE_MIGRATIONS_ALLOWED` or `ST_CANDIDATE_DB_SEED_ONLY`) is not confirmed.
+   - `ST_CANDIDATE_MIGRATIONS_ALLOWED` or `ST_CANDIDATE_DB_SEED_ONLY` is not `0`. Migrations are applied manually on ST and production, and the pipeline never runs migrations, seeds, schema dumps or `Local.sql`.
+   - `ST_CANDIDATE_DB_BASELINE_VOLUME` is a protected live volume, belongs to the live compose project, or is a per-run candidate volume.
+5. `deploy` also fails closed if the resolved candidate Compose config has external networks/volumes, `DATABASE_URL`, or `DB_HOST`/`PGHOST`/`REDIS_URL`/`KAFKA_BROKERS` pointing outside the candidate project.
+
+## Database: manual migration prerequisite
+
+The candidate never migrates a database. Each run's `db-data` volume is either:
+
+- **cloned** (file copy, source mounted read-only, no SQL) from `ST_CANDIDATE_DB_BASELINE_VOLUME`, which an operator prepares manually with the app's documented migration order plus the QA fixtures, or
+- **bootstrap-only** (extensions, `postgres` NOLOGIN role, `donehai_candidate` marker) when no baseline is set.
+
+After `database` and `redis` are healthy, and before any app service starts, `deploy` runs the app's read-only `deployment/st-ci/check-candidate-schema.sql` inside the candidate DB container. It continues only if the result is `status=ok`, the recorded `migrated_from_sha` is an ancestor of the pinned app SHA, and no path in the app's `deployment/st-ci/candidate-schema-paths.txt` changed in between. Otherwise it stops with `not_candidate`, `not_migrated`, `missing_relations`, `missing_fixtures`, `stale` or `gate_error` and prints the operator action. Full procedure: app repo `deployment/st-ci/CANDIDATE_DATABASE.md` ("Manual prerequisite").
+
+The gate checks the recorded prerequisite, freshness, the tables the E2E suite uses, and the QA fixtures. It does not validate the full application schema.
 
 ## Failure handling
 
@@ -85,7 +101,7 @@ Live stack labels (`ST_LIVE_COMPOSE_PROJECT`, protected volumes) are never remov
 
 ## Recorded SHAs
 
-Each deploy writes a manifest under `ST_DEPLOY_STATE_DIR` (default `/var/lib/donehai-st/deployments/`) containing:
+Each deploy writes a manifest under `ST_DEPLOY_STATE_DIR` (env or profile; default `${XDG_STATE_HOME:-$HOME/.local/state}/donehai-st/deployments`, owned by the runner user). The directory must persist across the three self-hosted jobs. If it cannot be created or written, the command fails with an error, and every manifest write is checked; a failed write is never reported as success. The manifest contains:
 
 - `app_commit_sha` (from dispatch input)
 - `automation_commit_sha` (from `actions/checkout` ref in `validate`)
@@ -98,7 +114,7 @@ The workflow never checks out the app repo at `rcpa-mine` HEAD without an explic
 These are **not** in `donehain-automation` and must exist in **DoneHai-Feature** (or ST ops) first:
 
 1. **`deployment/docker-compose.st-candidate.yml`** (`ST_APP_CANDIDATE_COMPOSE_FILE`) — standalone candidate stack: own Postgres/Redis, no `container_name`, project-scoped volumes/network, candidate ports, Kafka off, notifications no-op. `deploy` runs it with `-p donehai-candidate-<short_sha>-<run_id>` and `up --wait`; the live compose file is never used.
-2. **Candidate DB initialization** — `deployment/st-ci/initdb/90-candidate-db-init.sh` (see the app's `deployment/st-ci/CANDIDATE_DATABASE.md`). `deploy` fails unless the database log ends with `CANDIDATE_DB_INIT_RESULT status=ok`. The fixed-OTP accounts (`test1`…`test5@donehai.com`) come from the app's `deployment/st-ci/candidate-seeds/10-fixed-otp-test-accounts.sql` (default when `ST_CANDIDATE_SEED_DIR` is empty). The `playwright-gate` job checks `TEST_IDENTIFIER` (use `test1@donehai.com`) exists via `/api/otp-auth/check-user-access`, then runs `tests/attendance/` by default. `tests/tour` is not part of the gate: its fixture lists ST employees outside the seeded QA org and a fixed 01–09 Oct range that the page does not default to.
+2. **Candidate DB bootstrap and schema gate**: `deployment/st-ci/initdb/90-candidate-db-init.sh` (infrastructure only), `deployment/st-ci/check-candidate-schema.sql` and `deployment/st-ci/candidate-schema-paths.txt` (see the app's `deployment/st-ci/CANDIDATE_DATABASE.md`). The manually prepared baseline must include the fixed-OTP accounts (`test1`…`test5@donehai.com`) from the app's `deployment/st-ci/candidate-seeds/10-fixed-otp-test-accounts.sql`, applied by the operator. The `playwright-gate` job checks `TEST_IDENTIFIER` (use `test1@donehai.com`) exists via `/api/otp-auth/check-user-access`, then runs `tests/attendance/` by default. `tests/tour` is not part of the gate: its fixture lists ST employees outside the seeded QA org and a fixed 01–09 Oct range that the page does not default to.
 3. **Companion dispatch workflow** on `rcpa-mine` pushes (see `companion/`).
 4. **`ST_TRAFFIC_SWITCH_SCRIPT`** on the VPS — implements `save-previous`, `apply-candidate`, and `rollback` for your nginx/Caddy/traefik setup from discovery.
 5. **Auth/base URL** — if Playwright uses `http://127.0.0.1:<port>`, the app must accept that origin/cookies for login, or set `ST_CANDIDATE_BASE_URL` to an approved ST hostname that routes only to the candidate upstream.
@@ -110,4 +126,4 @@ bash deployment/st-ci/scripts/self-test.sh
 npm run typecheck
 ```
 
-Do not enable `ST_TRAFFIC_SWITCH_ENABLED` until isolation, DB setup, side-effect suppression, and rollback drills succeed on ST. Even when enabled, `switch-traffic` refuses unless the candidate's manifest records `db_init_status=ok` and `playwright_result=passed`. Without a switch, the candidate is always cleaned up at the end of the run.
+Do not enable `ST_TRAFFIC_SWITCH_ENABLED` until isolation, DB setup, side-effect suppression, and rollback drills succeed on ST. Even when enabled, `switch-traffic` refuses unless the candidate's manifest records `db_init_status=ok` (schema gate passed) and `playwright_result=passed`. Without a switch, the candidate is always cleaned up at the end of the run.
