@@ -87,6 +87,7 @@ jobs:
         env:
           ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
           ST_CANDIDATE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          ST_CANDIDATE_HEALTH_ONLY: "true"
           APP_REPO_TOKEN: ${{ secrets.APP_REPO_TOKEN }}
         run: |
           set -uo pipefail
@@ -116,7 +117,7 @@ jobs:
 
   playwright-gate:
     needs: [validate, deploy-candidate]
-    if: needs.deploy-candidate.result == 'success'
+    if: needs.deploy-candidate.result == 'success' && needs.deploy-candidate.outputs.db_init_status == 'ok'
     runs-on: [self-hosted, donehai-st]
     outputs:
       playwright_result: ${{ steps.record.outputs.playwright_result }}
@@ -265,6 +266,7 @@ jobs:
         id: switch
         if: >-
           needs.playwright-gate.result == 'success' &&
+          needs.deploy-candidate.outputs.db_init_status == 'ok' &&
           vars.ST_TRAFFIC_SWITCH_ENABLED == 'true' &&
           vars.ST_ISOLATION_PROFILE_VALIDATED == 'true'
         shell: bash

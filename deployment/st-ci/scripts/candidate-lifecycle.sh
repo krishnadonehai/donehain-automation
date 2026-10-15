@@ -365,19 +365,31 @@ cmd_deploy() {
 
   log "building candidate compose project=$project from $ST_APP_CANDIDATE_COMPOSE_FILE"
   candidate_compose "$project" build || fail "candidate build failed"
-  clone_baseline_db_volume "$project"
 
-  # Database and Redis only: no application service starts before the manual schema
-  # prerequisite is confirmed. The pipeline never applies migrations itself.
+  local db_status
+  if [ "${ST_CANDIDATE_HEALTH_ONLY:-false}" = "true" ]; then
+    log "health-check-only mode: skipping baseline clone and schema gate; no migrations or seeds will run"
+    db_status="skipped"
+  else
+    clone_baseline_db_volume "$project"
+  fi
+
+  # Candidate database and Redis are isolated; never use the live database.
   candidate_compose "$project" up -d --wait --wait-timeout "${ST_CANDIDATE_WAIT_TIMEOUT:-2700}" database redis \
     || { candidate_compose "$project" ps || true; fail "candidate database/redis did not become healthy"; }
 
-  local db_status
-  db_status="$(run_schema_gate "$project" "$app_sha")"
+  if [ "${ST_CANDIDATE_HEALTH_ONLY:-false}" != "true" ]; then
+    db_status="$(run_schema_gate "$project" "$app_sha")"
+    [ "$db_status" = "ok" ] || {
+      write_deployment_manifest "$m" "$app_repo" "$app_sha" "$auto_sha" "$project" "false" "$db_status" "pending" || true
+      printf 'DB_INIT_STATUS=%s\n' "$db_status"
+      fail "schema prerequisite not satisfied (status=$db_status): $(schema_gate_hint "$db_status")"
+    }
+  fi
+
   write_deployment_manifest "$m" "$app_repo" "$app_sha" "$auto_sha" "$project" "false" "$db_status" "pending" \
     || fail "cannot write candidate manifest $m"
   printf 'DB_INIT_STATUS=%s\n' "$db_status"
-  [ "$db_status" = "ok" ] || fail "schema prerequisite not satisfied (status=$db_status): $(schema_gate_hint "$db_status")"
 
   candidate_compose "$project" up -d --wait --wait-timeout "${ST_CANDIDATE_WAIT_TIMEOUT:-2700}" \
     || { candidate_compose "$project" ps || true; fail "candidate did not become healthy"; }

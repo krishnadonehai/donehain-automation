@@ -1,0 +1,300 @@
+# Safe ST candidate deploy + Playwright gate. Traffic switch remains off until
+# ST_TRAFFIC_SWITCH_ENABLED and ST_ISOLATION_PROFILE_VALIDATED are set on the ST runner.
+name: ST candidate deploy (Playwright gate)
+
+on:
+  repository_dispatch:
+    types: [st-candidate-deploy]
+  workflow_dispatch:
+    inputs:
+      app_commit_sha:
+        description: Full 40-char DoneHai-Feature commit SHA (required)
+        required: true
+        type: string
+      app_repository:
+        description: App repository slug (default DoneHai-Feature owner/repo)
+        required: false
+        type: string
+        default: DoneHai/DoneHai-Feature
+      playwright_path:
+        description: Test path for the gate (tests/tour needs ST-captured data and is not candidate-ready)
+        required: false
+        type: string
+        default: tests/attendance/
+
+concurrency:
+  group: st-candidate-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  APP_REPO: ${{ github.event.client_payload.app_repository || inputs.app_repository || 'DoneHai/DoneHai-Feature' }}
+  APP_COMMIT_SHA: ${{ github.event.client_payload.app_commit_sha || inputs.app_commit_sha }}
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      app_commit_sha: ${{ steps.meta.outputs.app_commit_sha }}
+      app_repository: ${{ steps.meta.outputs.app_repository }}
+      automation_commit_sha: ${{ steps.meta.outputs.automation_commit_sha }}
+    steps:
+      - name: Checkout automation (record exact SHA)
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Validate inputs and deployment enablement
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          sha="${APP_COMMIT_SHA:-}"
+          if ! [[ "$sha" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "app_commit_sha must be a full 40-character git SHA."
+            exit 1
+          fi
+          auto="$(git rev-parse HEAD)"
+          echo "app_commit_sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "app_repository=${APP_REPO}" >> "$GITHUB_OUTPUT"
+          echo "automation_commit_sha=$auto" >> "$GITHUB_OUTPUT"
+          echo "Recorded automation commit: $auto"
+          echo "Requested app commit: $sha"
+          if [ "${{ vars.ST_CANDIDATE_DEPLOY_ENABLED }}" != "true" ]; then
+            echo "ST_CANDIDATE_DEPLOY_ENABLED repository variable is not true; failing closed."
+            exit 1
+          fi
+
+  deploy-candidate:
+    needs: validate
+    if: needs.validate.result == 'success'
+    runs-on: [self-hosted, donehai-st]
+    outputs:
+      candidate_app_url: ${{ steps.deploy.outputs.candidate_app_url }}
+      candidate_id: ${{ steps.deploy.outputs.candidate_id }}
+      db_init_status: ${{ steps.deploy.outputs.db_init_status }}
+    steps:
+      - name: Checkout automation at recorded SHA
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ needs.validate.outputs.automation_commit_sha }}
+
+      - name: Deploy isolated candidate on ST VPS
+        id: deploy
+        shell: bash
+        env:
+          ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
+          ST_CANDIDATE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          APP_REPO_TOKEN: ${{ secrets.APP_REPO_TOKEN }}
+        run: |
+          set -uo pipefail
+          : "${APP_REPO_TOKEN:?APP_REPO_TOKEN secret is required}"
+          askpass="$RUNNER_TEMP/st-git-askpass"
+          printf '%s\n' '#!/bin/sh' 'case "$1" in' '  *Username*) printf "%s\n" "x-access-token" ;;' '  *Password*) printf "%s\n" "$APP_REPO_TOKEN" ;;' '  *) exit 1 ;;' 'esac' > "$askpass"
+          chmod 700 "$askpass"
+          trap 'rm -f "$askpass"' EXIT
+          export GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0
+          out_file="$RUNNER_TEMP/candidate-deploy.out"
+          bash deployment/st-ci/scripts/candidate-lifecycle.sh deploy \
+            "${{ needs.validate.outputs.app_commit_sha }}" \
+            "${{ needs.validate.outputs.automation_commit_sha }}" \
+            "${{ needs.validate.outputs.app_repository }}" | tee "$out_file"
+          rc=${PIPESTATUS[0]}
+          # Parse even on failure so cleanup always gets the candidate id.
+          while IFS= read -r line; do
+            key="${line%%=*}"
+            val="${line#*=}"
+            case "$key" in
+              CANDIDATE_ID) echo "candidate_id=$val" >> "$GITHUB_OUTPUT" ;;
+              CANDIDATE_APP_URL) echo "candidate_app_url=$val" >> "$GITHUB_OUTPUT" ;;
+              DB_INIT_STATUS) echo "db_init_status=$val" >> "$GITHUB_OUTPUT" ;;
+            esac
+          done < <(grep -E '^(CANDIDATE_ID|CANDIDATE_APP_URL|DB_INIT_STATUS)=' "$out_file" || true)
+          exit "$rc"
+
+  playwright-gate:
+    needs: [validate, deploy-candidate]
+    if: needs.deploy-candidate.result == 'success'
+    runs-on: [self-hosted, donehai-st]
+    outputs:
+      playwright_result: ${{ steps.record.outputs.playwright_result }}
+    env:
+      TEST_IDENTIFIER: ${{ secrets.TEST_IDENTIFIER }}
+      TEST_OTP: ${{ secrets.TEST_OTP }}
+      HEADLESS: "true"
+      SLOW_MO: "0"
+      CI: "true"
+    steps:
+      - name: Checkout automation at recorded SHA
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ needs.validate.outputs.automation_commit_sha }}
+
+      - name: Resolve candidate BASE_URL
+        id: url
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Prefer explicit candidate URL secret; else use deploy output (localhost on ST runner).
+          if [ -n "${{ secrets.ST_CANDIDATE_BASE_URL }}" ]; then
+            echo "base_url=${{ secrets.ST_CANDIDATE_BASE_URL }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base_url=${{ needs.deploy-candidate.outputs.candidate_app_url }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4.2.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prepare Playwright environment file
+        shell: bash
+        env:
+          BASE_URL: ${{ steps.url.outputs.base_url }}
+          TEST_IDENTIFIER: ${{ secrets.TEST_IDENTIFIER }}
+          TEST_OTP: ${{ secrets.TEST_OTP }}
+        run: |
+          set -euo pipefail
+          bash deployment/st-ci/scripts/write-playwright-env.sh .
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Candidate health before tests
+        shell: bash
+        env:
+          ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
+        run: bash deployment/st-ci/scripts/candidate-lifecycle.sh health-candidate
+
+      - name: Fixed-OTP test account present on candidate
+        shell: bash
+        env:
+          ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
+        run: bash deployment/st-ci/scripts/candidate-lifecycle.sh verify-otp-account "$TEST_IDENTIFIER"
+
+      - name: Run Playwright gate against candidate (includes OTP login setup)
+        id: playwright
+        shell: bash
+        env:
+          PLAYWRIGHT_PATH: ${{ inputs.playwright_path || github.event.client_payload.playwright_path || 'tests/attendance/' }}
+        run: |
+          set -euo pipefail
+          args=(--config=playwright.candidate.config.ts --project=chromium)
+          if [ -n "$PLAYWRIGHT_PATH" ]; then args=("$PLAYWRIGHT_PATH" "${args[@]}"); fi
+          npx playwright test "${args[@]}"
+
+      - name: Record result with both repository SHAs
+        id: record
+        if: always()
+        shell: bash
+        env:
+          ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
+          PW_OUTCOME: ${{ steps.playwright.outcome }}
+        run: |
+          set -uo pipefail
+          result=failed
+          [ "$PW_OUTCOME" = "success" ] && result=passed
+          echo "playwright_result=$result" >> "$GITHUB_OUTPUT"
+          record_rc=0
+          bash deployment/st-ci/scripts/candidate-lifecycle.sh record-result \
+            "${{ needs.deploy-candidate.outputs.candidate_id }}" "$result" || record_rc=$?
+          mkdir -p deployment-record
+          cat > deployment-record/deployment-record.json <<EOF
+          {
+            "app_repository": "${{ needs.validate.outputs.app_repository }}",
+            "app_commit_sha": "${{ needs.validate.outputs.app_commit_sha }}",
+            "automation_repository": "${{ github.repository }}",
+            "automation_commit_sha": "${{ needs.validate.outputs.automation_commit_sha }}",
+            "candidate_id": "${{ needs.deploy-candidate.outputs.candidate_id }}",
+            "db_init_status": "${{ needs.deploy-candidate.outputs.db_init_status }}",
+            "playwright_result": "$result",
+            "workflow_run": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          }
+          EOF
+          {
+            echo "### ST candidate result: $result"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| App | \`${{ needs.validate.outputs.app_repository }}@${{ needs.validate.outputs.app_commit_sha }}\` |"
+            echo "| Automation | \`${{ github.repository }}@${{ needs.validate.outputs.automation_commit_sha }}\` |"
+            echo "| Candidate | \`${{ needs.deploy-candidate.outputs.candidate_id }}\` |"
+            echo "| DB schema gate | ${{ needs.deploy-candidate.outputs.db_init_status }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$record_rc" -ne 0 ]; then
+            echo "::error::Failed to record the Playwright result in the candidate manifest (exit $record_rc)."
+            exit "$record_rc"
+          fi
+
+      - name: Upload deployment record
+        if: always()
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: deployment-record-${{ needs.validate.outputs.app_commit_sha }}-${{ github.run_attempt }}
+          path: deployment-record/
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4.6.0
+        with:
+          name: playwright-report-candidate-${{ needs.validate.outputs.app_commit_sha }}-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  promote-or-cleanup:
+    needs: [validate, deploy-candidate, playwright-gate]
+    if: always()
+    runs-on: [self-hosted, donehai-st]
+    steps:
+      - name: Checkout automation at recorded SHA
+        uses: actions/checkout@v4.2.2
+        with:
+          ref: ${{ needs.validate.outputs.automation_commit_sha }}
+
+      - name: Switch ST traffic (gated)
+        id: switch
+        if: >-
+          needs.playwright-gate.result == 'success' &&
+          vars.ST_TRAFFIC_SWITCH_ENABLED == 'true' &&
+          vars.ST_ISOLATION_PROFILE_VALIDATED == 'true'
+        shell: bash
+        env:
+          ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
+          ST_TRAFFIC_SWITCH_ENABLED: "1"
+          ST_ISOLATION_PROFILE_VALIDATED: "1"
+          ST_TRAFFIC_SWITCH_SCRIPT: ${{ secrets.ST_TRAFFIC_SWITCH_SCRIPT_PATH }}
+          ST_CANDIDATE_COMPOSE_PROJECT: ${{ needs.deploy-candidate.outputs.candidate_id }}
+        run: bash deployment/st-ci/scripts/candidate-lifecycle.sh switch-traffic
+
+      - name: Skip traffic switch (default until validation complete)
+        if: >-
+          needs.playwright-gate.result == 'success' &&
+          (vars.ST_TRAFFIC_SWITCH_ENABLED != 'true' || vars.ST_ISOLATION_PROFILE_VALIDATED != 'true')
+        run: |
+          echo "Playwright gate passed. Traffic switch skipped (ST_TRAFFIC_SWITCH_ENABLED / ST_ISOLATION_PROFILE_VALIDATED)."
+          echo "Current public ST deployment remains active."
+
+      # Removes the candidate unless it now serves ST traffic (frees ports for the next run).
+      - name: Cleanup candidate
+        if: always() && steps.switch.outcome != 'success'
+        shell: bash
+        env:
+          ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
+          ST_CANDIDATE_COMPOSE_PROJECT: ${{ needs.deploy-candidate.outputs.candidate_id }}
+        run: |
+          set -euo pipefail
+          if [ -n "${ST_CANDIDATE_COMPOSE_PROJECT:-}" ]; then
+            bash deployment/st-ci/scripts/candidate-lifecycle.sh cleanup-candidate
+          else
+            echo "No candidate_id output; skipping cleanup."
+          fi
