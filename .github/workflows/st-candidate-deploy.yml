@@ -117,7 +117,7 @@ jobs:
 
   playwright-gate:
     needs: [validate, deploy-candidate]
-    if: needs.deploy-candidate.result == 'success' && needs.deploy-candidate.outputs.db_init_status == 'ok'
+    if: needs.deploy-candidate.result == 'success'
     runs-on: [self-hosted, donehai-st]
     outputs:
       playwright_result: ${{ steps.record.outputs.playwright_result }}
