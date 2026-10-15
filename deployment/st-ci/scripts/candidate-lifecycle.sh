@@ -69,7 +69,7 @@ checkout_app_exact_sha() {
   git -C "$ST_APP_REPO_DIR" rev-parse --git-dir >/dev/null 2>&1 || fail "not a git repo: $ST_APP_REPO_DIR"
 
   log "fetching app repository (no checkout of floating branch)"
-  git -C "$ST_APP_REPO_DIR" fetch --quiet origin "$sha" || fail "cannot fetch app commit $sha"
+  git -C "$ST_APP_REPO_DIR" -c credential.helper= -c credential.useHttpPath=true fetch --quiet origin "$sha" || fail "cannot fetch app commit $sha"
 
   local worktree="$ST_APP_REPO_DIR/.ci-worktrees/$sha"
   mkdir -p "$(dirname "$worktree")"
