@@ -1,0 +1,70 @@
+name: ST Candidate E2E Only
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: st-candidate-e2e-only
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: [self-hosted, donehai-st]
+    timeout-minutes: 30
+
+    env:
+      BASE_URL: http://127.0.0.1:18080
+
+    steps:
+      - name: Checkout automation repository
+        uses: actions/checkout@v4
+
+      - name: Check candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 10 \
+            "$BASE_URL/" -o /dev/null
+          echo "Candidate web is reachable"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Configure Playwright environment
+        shell: bash
+        env:
+          TEST_IDENTIFIER: ${{ secrets.TEST_IDENTIFIER }}
+          TEST_OTP: ${{ secrets.TEST_OTP }}
+        run: |
+          set -euo pipefail
+          test -n "$TEST_IDENTIFIER"
+          [[ "$TEST_OTP" =~ ^[0-9]{6}$ ]]
+          export BASE_URL
+          bash deployment/st-ci/scripts/write-playwright-env.sh
+
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: Run attendance E2E
+        run: >
+          npx playwright test tests/attendance/
+          --config=playwright.candidate.config.ts
+          --project=chromium
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: st-candidate-e2e-results
+          if-no-files-found: ignore
+          path: |
+            test-results/
+            playwright-report/
