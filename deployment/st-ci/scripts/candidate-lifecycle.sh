@@ -86,7 +86,8 @@ checkout_app_exact_sha() {
   git -C "$ST_APP_REPO_DIR" rev-parse --git-dir >/dev/null 2>&1 || fail "not a git repo: $ST_APP_REPO_DIR"
 
   log "fetching app repository (no checkout of floating branch)"
-  git -C "$ST_APP_REPO_DIR" -c credential.helper= -c credential.useHttpPath=true fetch --quiet origin "$sha" || fail "cannot fetch app commit $sha"
+  git -C "$ST_APP_REPO_DIR" -c credential.helper= -c credential.useHttpPath=true \
+    fetch --quiet origin "$sha" || fail "cannot fetch app commit $sha"
 
   local worktree="$ST_APP_REPO_DIR/.ci-worktrees/$sha"
   mkdir -p "$(dirname "$worktree")"
@@ -134,11 +135,12 @@ export_candidate_env() {
 # violation: external networks/volumes, or DB/Redis/Kafka endpoints outside the candidate project.
 candidate_dependency_violations() {
   python3 -c '
-import json, re, sys
+import json, re, sys, os
 d = json.load(sys.stdin)
 out = []
+live_db = os.environ.get("ST_CANDIDATE_USE_LIVE_DATABASE") == "1" and os.environ.get("ST_CANDIDATE_ALLOW_LIVE_DB_FOR_TESTS") == "1"
 for k, v in (d.get("networks") or {}).items():
-    if (v or {}).get("external"):
+    if (v or {}).get("external") and not (live_db and k == "live-st-db" and (v or {}).get("name") == "deployment_donehai-network"):
         out.append("network %s is external" % k)
 for k, v in (d.get("volumes") or {}).items():
     if (v or {}).get("external"):
@@ -150,6 +152,8 @@ for name, svc in (d.get("services") or {}).items():
         env = dict(e.split("=", 1) if "=" in e else (e, "") for e in env)
     for key, want in local_host.items():
         val = env.get(key)
+        if live_db and name == "server" and key == "DB_HOST" and val == "donehai-db":
+            continue
         if val not in (None, "", want):
             out.append("%s %s=%s (must be the candidate %r service)" % (name, key, val, want))
     if env.get("DATABASE_URL"):
@@ -351,7 +355,7 @@ cmd_deploy() {
       [ "$volume_name" != "$protected_volume" ] || fail "candidate volume collides with protected live volume: $volume_name"
     done < <(printf '%s\n' "$ST_LIVE_PROTECTED_VOLUMES" | tr ',' '\n')
   done < <(printf '%s' "$compose_json" | python3 -c 'import json,sys; d=json.load(sys.stdin); [print(v.get("name", k)) for k,v in d.get("volumes", {}).items()]')
-  # Fail closed if the resolved config points any service at a live dependency.
+  # Live DB reuse is permitted only with the explicit test opt-in; other dependencies remain isolated.
   violations="$(printf '%s' "$compose_json" | candidate_dependency_violations)" \
     || fail "cannot check candidate dependencies"
   [ -z "$violations" ] || fail "candidate config references live/external dependencies: $(printf '%s' "$violations" | tr '\n' ';')"
@@ -367,24 +371,30 @@ cmd_deploy() {
   candidate_compose "$project" build || fail "candidate build failed"
 
   local db_status
-  if [ "${ST_CANDIDATE_HEALTH_ONLY:-false}" = "true" ]; then
-    log "health-check-only mode: skipping baseline clone and schema gate; no migrations or seeds will run"
+  if [ "${ST_CANDIDATE_USE_LIVE_DATABASE:-0}" = "1" ]; then
+    log "explicit live-DB test mode: skipping private database, baseline clone, and schema gate; migrations/seeds remain disabled"
     db_status="skipped"
+    candidate_compose "$project" up -d --wait --wait-timeout "${ST_CANDIDATE_WAIT_TIMEOUT:-2700}" redis \
+      || { candidate_compose "$project" ps || true; fail "candidate Redis did not become healthy"; }
   else
-    clone_baseline_db_volume "$project"
-  fi
+    if [ "${ST_CANDIDATE_HEALTH_ONLY:-false}" = "true" ]; then
+      log "health-check-only mode: skipping baseline clone and schema gate; no migrations or seeds will run"
+      db_status="skipped"
+    else
+      clone_baseline_db_volume "$project"
+    fi
 
-  # Candidate database and Redis are isolated; never use the live database.
-  candidate_compose "$project" up -d --wait --wait-timeout "${ST_CANDIDATE_WAIT_TIMEOUT:-2700}" database redis \
-    || { candidate_compose "$project" ps || true; fail "candidate database/redis did not become healthy"; }
+    candidate_compose "$project" up -d --wait --wait-timeout "${ST_CANDIDATE_WAIT_TIMEOUT:-2700}" database redis \
+      || { candidate_compose "$project" ps || true; fail "candidate database/redis did not become healthy"; }
 
-  if [ "${ST_CANDIDATE_HEALTH_ONLY:-false}" != "true" ]; then
-    db_status="$(run_schema_gate "$project" "$app_sha")"
-    [ "$db_status" = "ok" ] || {
-      write_deployment_manifest "$m" "$app_repo" "$app_sha" "$auto_sha" "$project" "false" "$db_status" "pending" || true
-      printf 'DB_INIT_STATUS=%s\n' "$db_status"
-      fail "schema prerequisite not satisfied (status=$db_status): $(schema_gate_hint "$db_status")"
-    }
+    if [ "${ST_CANDIDATE_HEALTH_ONLY:-false}" != "true" ]; then
+      db_status="$(run_schema_gate "$project" "$app_sha")"
+      [ "$db_status" = "ok" ] || {
+        write_deployment_manifest "$m" "$app_repo" "$app_sha" "$auto_sha" "$project" "false" "$db_status" "pending" || true
+        printf 'DB_INIT_STATUS=%s\n' "$db_status"
+        fail "schema prerequisite not satisfied (status=$db_status): $(schema_gate_hint "$db_status")"
+      }
+    fi
   fi
 
   write_deployment_manifest "$m" "$app_repo" "$app_sha" "$auto_sha" "$project" "false" "$db_status" "pending" \

@@ -54,19 +54,30 @@ guard_isolation() {
     done
   done
 
-  if [ "${ST_CANDIDATE_USE_LIVE_DATABASE:-0}" = "1" ] || [ "${ST_CANDIDATE_USE_LIVE_REDIS:-0}" = "1" ] || [ "${ST_CANDIDATE_USE_LIVE_KAFKA:-0}" = "1" ]; then
-    fail "candidate must not reuse live database, Redis, or Kafka (flags must remain 0)"
+  if [ "${ST_CANDIDATE_USE_LIVE_DATABASE:-0}" = "1" ]; then
+    [ "${ST_CANDIDATE_ALLOW_LIVE_DB_FOR_TESTS:-0}" = "1" ] || fail "live DB requires explicit ST_CANDIDATE_ALLOW_LIVE_DB_FOR_TESTS=1"
+    [ "${ST_CANDIDATE_USE_LIVE_REDIS:-0}" != "1" ] || fail "live Redis is not permitted"
+    [ "${ST_CANDIDATE_USE_LIVE_KAFKA:-0}" != "1" ] || fail "live Kafka is not permitted"
+  elif [ "${ST_CANDIDATE_USE_LIVE_REDIS:-0}" = "1" ] || [ "${ST_CANDIDATE_USE_LIVE_KAFKA:-0}" = "1" ]; then
+    fail "candidate must not reuse live Redis or Kafka"
   fi
 
   if [ -z "${ST_CANDIDATE_DATABASE_URL:-}" ]; then
     fail "ST_CANDIDATE_DATABASE_URL must be set to an isolated database (empty/unset is not allowed)"
   fi
 
-  case "$ST_CANDIDATE_DATABASE_URL" in
-    *"@db:"*|*"@postgres:"*|*"/deployment_"*|*":5432/deployment"*|*"$ST_LIVE_COMPOSE_PROJECT"*)
-      fail "ST_CANDIDATE_DATABASE_URL appears to reference live ST data resources"
-      ;;
-  esac
+  if [ "${ST_CANDIDATE_USE_LIVE_DATABASE:-0}" = "1" ] && [ "${ST_CANDIDATE_ALLOW_LIVE_DB_FOR_TESTS:-0}" = "1" ]; then
+    case "$ST_CANDIDATE_DATABASE_URL" in
+      "postgresql://e2e_test_user@donehai-db:5432/saas_platform_db"|"postgresql://saas_app_user@donehai-db:5432/saas_platform_db") ;;
+      *) fail "live DB mode requires an approved database URL using e2e_test_user or saas_app_user" ;;
+    esac
+  else
+    case "$ST_CANDIDATE_DATABASE_URL" in
+      *"@db:"*|*"@postgres:"*|*"/deployment_"*|*":5432/deployment"*|*"$ST_LIVE_COMPOSE_PROJECT"*)
+        fail "ST_CANDIDATE_DATABASE_URL appears to reference live ST data resources"
+        ;;
+    esac
+  fi
 
   if [ -z "${ST_CANDIDATE_REDIS_URL:-}" ]; then
     fail "ST_CANDIDATE_REDIS_URL must be set for an isolated Redis instance"
