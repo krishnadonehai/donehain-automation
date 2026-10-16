@@ -179,6 +179,32 @@ jobs:
           ST_CANDIDATE_PROFILE: ${{ secrets.ST_CANDIDATE_PROFILE_PATH }}
         run: bash deployment/st-ci/scripts/candidate-lifecycle.sh verify-otp-account "$TEST_IDENTIFIER"
 
+      - name: Capture candidate logs on failure
+        if: failure()
+        shell: bash
+        env:
+          ST_CANDIDATE_COMPOSE_PROJECT: ${{ needs.deploy-candidate.outputs.candidate_id }}
+        run: |
+          set +e
+          project="${ST_CANDIDATE_COMPOSE_PROJECT:-}"
+          if [ -z "$project" ]; then
+            echo "Candidate project ID unavailable; skipping log capture."
+            exit 0
+          fi
+          ids="$(docker ps -aq --filter "label=com.docker.compose.project=$project")"
+          if [ -z "$ids" ]; then
+            echo "No candidate containers remain for project $project."
+            exit 0
+          fi
+          for cid in $ids; do
+            name="$(docker inspect --format '{{.Name}}' "$cid" | sed 's#^/##')"
+            echo "===== filtered candidate errors: $name ====="
+            docker logs --since 15m "$cid" 2>&1 |
+              grep -Ei 'error|exception|redis|database|ECONN|timeout|check-user-access|internal server' |
+              tail -n 80 |
+              sed -E 's/((otp|token|password|secret|authorization)[^:=]{0,20}[:=][[:space:]]*)[^ ,"]+/\1[REDACTED]/Ig'
+          done
+
       - name: Run Playwright gate against candidate (includes OTP login setup)
         id: playwright
         shell: bash

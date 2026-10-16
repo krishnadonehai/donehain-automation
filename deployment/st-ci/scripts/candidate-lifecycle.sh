@@ -287,8 +287,21 @@ cmd_verify_otp_account() {
     rm -f "$body"
     fail "candidate DB has no account for the test identifier; add it to the manually prepared candidate baseline (app deployment/st-ci/CANDIDATE_DATABASE.md)"
   fi
+  if [[ ! "$code" =~ ^2 ]]; then
+    log_err "OTP account check returned HTTP $code; sanitized response follows"
+    python3 - "$body" <<'PYBODY'
+import json, re, sys
+try:
+    data = open(sys.argv[1], encoding="utf-8", errors="replace").read(12000)
+    data = re.sub(r'(?i)(otp|token|password|secret|authorization)\s*["\']?\s*[:=]\s*["\']?[^\s,"\'}]+', r'\1=[REDACTED]', data)
+    print(data)
+except Exception:
+    print("[response body unavailable]")
+PYBODY
+    rm -f "$body"
+    fail "OTP account check returned HTTP $code"
+  fi
   rm -f "$body"
-  [[ "$code" =~ ^2 ]] || fail "OTP account check returned HTTP $code"
   log "fixed-OTP test account is present on the candidate (HTTP $code)"
 }
 
