@@ -1,7 +1,7 @@
 # DoneHai Automation — Login and Attendance
 
-A fresh local Playwright/TypeScript project. No GitHub Actions, CI/CD workflow,
-other CRM modules, or pending/skipped test stubs are included.
+A Playwright/TypeScript project for local and GitHub Actions testing of DoneHai
+login and attendance flows.
 
 ## 1. Extract into a new project folder
 
@@ -126,6 +126,33 @@ actions wait through assertions; slowMo is only for visual demonstration.
 
 Reports/traces can contain personnel details or authentication data; share them
 only with the authorized team. `.env`, auth state and generated reports are ignored.
+
+## GitHub Actions CI/CD
+
+The `DoneHai Playwright CI` workflow in
+[.github/workflows/playwright.yml](./.github/workflows/playwright.yml) runs on
+pushes to `main`, pull requests targeting `main`, nightly at 02:00 IST, and
+manual dispatch (choose `regression` or `smoke`). A `Static checks` job
+type-checks the code and runs the staging deployment-script self-tests; only if
+it passes does the `E2E` job run the `@smoke` attendance tests (pull requests) or
+the `@regression` attendance tests (everything else). It uploads the Playwright
+report and test evidence. Configure `BASE_URL`, `TEST_IDENTIFIER`, and
+`TEST_OTP` as repository Actions secrets; they must belong to the approved
+staging account/environment. E2E runs are serialized through one concurrency
+group because the fixed-OTP account does not support parallel sessions, and they
+are skipped for pull requests from forks, which cannot read the secrets.
+
+Staging candidate deployment is handled separately by
+[.github/workflows/st-candidate-deploy.yml](./.github/workflows/st-candidate-deploy.yml).
+It is manually dispatched or triggered by the app repository's
+`repository_dispatch`, deploys an isolated candidate on the ST self-hosted
+runner, and runs the Playwright gate against it. It fails closed unless
+`ST_CANDIDATE_DEPLOY_ENABLED` and the required runner/secrets are configured.
+Public ST traffic switching is an additional, disabled-by-default gate requiring
+both `ST_TRAFFIC_SWITCH_ENABLED` and `ST_ISOLATION_PROFILE_VALIDATED`. Follow
+[deployment/st-ci/DEPLOYMENT.md](./deployment/st-ci/DEPLOYMENT.md) before enabling
+those settings. This CD flow deploys the application candidate to staging; it
+does not deploy this automation repository or promote to production.
 
 ## Current verification
 

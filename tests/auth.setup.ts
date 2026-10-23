@@ -31,8 +31,8 @@ test('Login once with staging email and fixed OTP', async ({ page, context, base
     await testInfo.attach('login-success', {
       body: await page.screenshot({ fullPage: true }), contentType: 'image/png',
     });
-    await page.close();
     await saveSession(context);
+    await page.close();
     console.log('Login succeeded; fresh authentication saved.');
   } catch (error) {
     if (!page.isClosed()) await testInfo.attach('login-failure', {
