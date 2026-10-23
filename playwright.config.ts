@@ -28,7 +28,8 @@ export default defineConfig({
     baseURL,
     browserName: 'chromium',
     headless: process.env.HEADLESS === 'true',
-  viewport: null,
+  // Headless has no window to maximize and defaults to 800x600, which clips the date pickers.
+  viewport: process.env.HEADLESS === 'true' ? { width: 1920, height: 1080 } : null,
 launchOptions: {
   args: ['--start-maximized'],
   slowMo: Number(process.env.SLOW_MO ?? 700),
@@ -36,7 +37,7 @@ launchOptions: {
 },
     acceptDownloads: true,
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: 'off',
     trace: 'retain-on-failure', 
   },
   
