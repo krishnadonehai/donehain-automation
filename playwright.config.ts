@@ -22,6 +22,7 @@ export default defineConfig({
   ['list'],
   ['html', { open: 'never' }],
   ['json', { outputFile: 'test-results/results.json' }],
+  ['junit', { outputFile: 'test-results/junit.xml' }],
 ],
   use: {
     baseURL,
@@ -31,11 +32,12 @@ export default defineConfig({
 launchOptions: {
   args: ['--start-maximized'],
   slowMo: Number(process.env.SLOW_MO ?? 700),
+  
 },
     acceptDownloads: true,
-    screenshot: 'off', // A screenshot is attached by hooks before auth checkpointing.
-    video: { mode: 'on', size: { width: 1920, height: 1080 } },
-    trace: 'on',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    trace: 'retain-on-failure', 
   },
   
   projects: [

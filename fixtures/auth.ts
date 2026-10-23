@@ -25,13 +25,12 @@ export const test = base.extend<{ sessionCheckpoint: void }>({
       await use();
     } finally {
       const redirected = context.pages().some(page => /\/login(?:[/?#]|$)/.test(page.url()));
-      // Stop page timers before saving newly rotated cookies.
-      for (const page of context.pages()) await page.close();
-      if (!rejected && !redirected && pending.size === 0) {
+      if (!rejected && !redirected && pending.size === 0 && context.pages().length > 0) {
         await saveSession(context);
       } else {
         console.warn('Session was rejected or refresh was unfinished. Run npm run test:login before reusing it.');
       }
+      for (const page of context.pages()) await page.close();
     }
   }, { auto: true }],
 });

@@ -23,9 +23,9 @@ export type AttendanceRow = AttendanceRecord & {
   date: string;
 };
 
-const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
 export class AttendancePage {
@@ -131,58 +131,71 @@ async selectDate(isoDate: string): Promise<void> {
       exact: true,
     }).click();
 
-    await expect(trigger).toContainText(expected, {
+    await expect(trigger).toHaveText(expected, {
       timeout: 15000,
     });
 
     return;
   }
 
-  // Historical dates: select a one-day range
-  // by clicking the requested date in the calendar.
+  // Historical dates: select a one-day range in the
+  // react-day-picker calendar (one role="grid" per visible month).
   const [year, month, day] =
     isoDate.split('-').map(Number);
 
-  const monthName = new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    timeZone: 'UTC',
-  }).format(new Date(Date.UTC(year, month - 1, 1)));
-
-  const monthLabel = `${monthName} ${year}`;
-
-  const monthHeading = dialog.getByText(monthLabel, {
+  const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
+  const monthGrid = dialog.getByRole('grid', {
+    name: monthLabel,
     exact: true,
   });
 
-  if (!(await monthHeading.isVisible())) {
-    throw new Error(
-      `Calendar month ${monthLabel} is not visible. ` +
-      'Month navigation must be configured using ' +
-      'the actual DoneHai calendar HTML.'
+  for (let step = 0; step < 36 && !(await monthGrid.isVisible()); step++) {
+    const firstVisible = await dialog.getByRole('grid').first().evaluate(
+      grid => document.getElementById(
+        grid.getAttribute('aria-labelledby') ?? ''
+      )?.textContent?.trim() ?? ''
     );
+    const [shownName, shownYear] = firstVisible.split(' ');
+    const shownIndex = Number(shownYear) * 12 +
+      MONTH_NAMES.indexOf(shownName);
+    const targetIndex = year * 12 + month - 1;
+
+    await dialog.getByRole('button', {
+      name: targetIndex < shownIndex
+        ? 'Go to previous month'
+        : 'Go to next month',
+    }).click();
   }
 
-  const calendarDay = dialog
-    .getByRole('button', {
-      name: String(day),
-      exact: true,
-    });
+  await expect(
+    monthGrid,
+    `Calendar could not navigate to ${monthLabel}.`
+  ).toBeVisible();
 
-  if (await calendarDay.count() !== 1) {
-    throw new Error(
-      `Calendar contains ${await calendarDay.count()} ` +
-      `matching day buttons for ${isoDate}. ` +
-      'Need the calendar day HTML to identify ' +
-      'the correct month and date.'
-    );
-  }
+  const calendarDay = monthGrid.getByRole('gridcell', {
+    name: String(day),
+    exact: true,
+  });
 
   await calendarDay.click();
 
-  // Date-range picker may require a second click.
-  await expect(trigger).toContainText(expected, {
-    timeout: 15000,
-  });
+  // A range such as "13-Oct-2026 – 23-Oct-2026" also contains
+  // the expected date, so only an exact match means one day is selected.
+  // The range picker may need a second click to close the range.
+  try {
+    await expect(trigger).toHaveText(expected, { timeout: 3000 });
+  } catch {
+    if (await dialog.isVisible()) await calendarDay.click();
+    await expect(
+      trigger,
+      `Expected a single-day selection of ${expected}.`
+    ).toHaveText(expected, { timeout: 15000 });
+  }
+
+  if (await dialog.isVisible()) {
+    await this.page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+  }
 }
 
 
