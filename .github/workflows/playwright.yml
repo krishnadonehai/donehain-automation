@@ -99,7 +99,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run ${{ env.SUITE }} tests
-        run: npx playwright test tests/attendance/ --grep "@${SUITE}" --project=chromium
+        run: npx playwright test tests/attendance/ tests/tour/ --grep "@${SUITE}" --project=chromium
 
       - name: Publish Test Results
         if: always()

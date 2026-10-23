@@ -134,8 +134,10 @@ The `DoneHai Playwright CI` workflow in
 pushes to `main`, pull requests targeting `main`, nightly at 02:00 IST, and
 manual dispatch (choose `regression` or `smoke`). A `Static checks` job
 type-checks the code and runs the staging deployment-script self-tests; only if
-it passes does the `E2E` job run the `@smoke` attendance tests (pull requests) or
-the `@regression` attendance tests (everything else). It uploads the Playwright
+it passes does the `E2E` job run the `@smoke` attendance and tour tests (pull
+requests) or the `@regression` attendance and tour tests (everything else). Tour
+tests compare each status tab against the All tab for the last 30 days, so
+staging needs some tour records in that window. It uploads the Playwright
 report and test evidence. Configure `BASE_URL`, `TEST_IDENTIFIER`, and
 `TEST_OTP` as repository Actions secrets; they must belong to the approved
 staging account/environment. E2E runs are serialized through one concurrency

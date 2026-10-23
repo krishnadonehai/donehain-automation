@@ -1,84 +1,138 @@
 import { test, expect } from '../../fixtures/auth';
-import { TourPage, type TourStatus } from '../../pages/TourPage';
+import { TourPage, type TourRecord, type TourStatus } from '../../pages/TourPage';
 import data from '../../data/tour.json';
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { daysBefore, todayInIndia } from '../../utils/dates';
+import { readFile, stat } from 'node:fs/promises';
 
-test.beforeEach(async ({ page }) => {
-  const tour = new TourPage(page);
-  await tour.open();
-  await tour.selectTab('All');
-  await tour.expectDateRange(data.range.from, data.range.to);
-  // Wait for the real baseline before exercising filters (including empty tabs).
-  await tour.expectRecords(data.records);
-});
+const STATUSES: TourStatus[] = ['All', 'Pending', 'Approved', 'Rejected'];
 
-test('Tour table headers and supplied records', async ({ page }) => {
-  const tour = new TourPage(page);
-  await expect(tour.table.getByRole('columnheader')).toHaveText([
-    '', 'Emp ID', 'Emp Name', 'Date', 'Type', 'HQ', 'Cluster', 'Status', 'Actions',
-  ]);
-  await tour.expectRecords(data.records);
-});
+// Staging records change, so assertions compare against the All-tab baseline
+// for a rolling range instead of a hard-coded fixture.
+const to = todayInIndia();
+const from = daysBefore(to, data.rangeDays - 1);
 
-for (const status of ['All', 'Pending', 'Approved', 'Rejected'] as TourStatus[]) {
-  test(`${status} tab shows the expected Tour records`, async ({ page }) => {
-    const tour = new TourPage(page);
-    // Exercise switching BACK to All instead of clicking only the initial tab.
-    if (status === 'All') {
-      await tour.selectTab('Pending');
-      await tour.expectRecords(data.records.filter(row => row.status === 'Pending'));
-    }
-    await tour.selectTab(status);
-    const expected = status === 'All' ? data.records : data.records.filter(row => row.status === status);
-    await tour.expectRecords(expected);
-    console.log(`${status}: verified ${expected.length} record(s)`);
-    if (status !== 'All') {
-      await tour.selectTab('All');
-      await tour.expectRecords(data.records);
-    }
-  });
+function isoFromTourDate(date: string): string {
+  const [day, month, year] = date.split('-');
+  return `${year}-${month}-${day}`;
 }
 
-test('Displayed Tour dates fall within the selected range', async ({ page }) => {
-  const tour = new TourPage(page);
-  const rows = await tour.readRows();
-  expect(rows.length).toBeGreaterThan(0);
-  for (const row of rows) {
-    expect(row.date).toMatch(/^\d{2}-\d{2}-\d{4}$/);
-    const [day, month, year] = row.date.split('-');
-    const iso = `${year}-${month}-${day}`;
-    expect(new Date(`${iso}T00:00:00Z`).toISOString().slice(0, 10)).toBe(iso);
-    expect(iso >= data.range.from && iso <= data.range.to, `${row.employeeName}: ${row.date}`).toBe(true);
-  }
-});
+/** Waits until the table reflects the given range, then returns its rows. */
+async function rowsInRange(tour: TourPage, start: string, end: string): Promise<TourRecord[]> {
+  await expect.poll(async () => {
+    const rows = await tour.readRows();
+    return rows.length > 0 && rows.every(row => {
+      const iso = isoFromTourDate(row.date);
+      return iso >= start && iso <= end;
+    });
+  }, {
+    timeout: 30_000,
+    message: `Expected Tour records within ${start} – ${end}. Staging needs tour data in the last ${data.rangeDays} days.`,
+  }).toBe(true);
+  return tour.readRows();
+}
 
-test('Date range picker opens, closes and saves its controls for the next test update', async ({ page }, testInfo) => {
-  const tour = new TourPage(page);
-  const dialog = await tour.openDatePicker();
-  const htmlPath = testInfo.outputPath('tour-date-picker.html');
-  await writeFile(htmlPath, await dialog.evaluate(element => element.outerHTML), 'utf-8');
-  await testInfo.attach('tour-date-picker-html', { path: htmlPath, contentType: 'text/html' });
-  await testInfo.attach('tour-date-picker', {
-    body: await dialog.screenshot(), contentType: 'image/png',
+test.describe('Tour Smoke Tests @smoke @regression', () => {
+  test('Tour page loads with tabs, actions and table headers', async ({ page }) => {
+    const tour = new TourPage(page);
+    await tour.open();
+
+    for (const status of STATUSES) await expect(tour.tab(status)).toBeVisible();
+    await expect(tour.dateButton).toBeVisible();
+    await expect(tour.importButton).toBeVisible();
+    await expect(tour.exportButton).toBeVisible();
+
+    await tour.selectTab('All');
+    await expect(tour.table.getByRole('columnheader')).toHaveText([
+      '', 'Emp ID', 'Emp Name', 'Date', 'Type', 'HQ', 'Cluster', 'Status', 'Actions',
+    ]);
   });
-  console.log('Calendar markup saved:', htmlPath);
-  await page.keyboard.press('Escape');
-  await expect(dialog).not.toBeVisible();
-  await expect(tour.dateButton).toHaveAttribute('aria-expanded', 'false');
-  await tour.expectDateRange(data.range.from, data.range.to);
 });
 
-test('Export downloads a nonempty file', async ({ page }, testInfo) => {
-  const tour = new TourPage(page);
-  await expect(tour.exportButton).toBeEnabled();
-  const pending = page.waitForEvent('download');
-  await tour.exportButton.click();
-  const download = await pending;
-  expect(await download.failure()).toBeNull();
-  const file = testInfo.outputPath(download.suggestedFilename());
-  await download.saveAs(file);
-  expect((await stat(file)).size).toBeGreaterThan(0);
-  // Export format has not been supplied; don't assume this is a CSV report.
-  await testInfo.attach('tour-export', { body: await readFile(file), contentType: 'application/octet-stream' });
-  console.log('Tour export saved:', file);
+test.describe('Tour Regression Tests @regression', () => {
+  let baseline: TourRecord[];
+
+  test.beforeEach(async ({ page }) => {
+    const tour = new TourPage(page);
+    await tour.open();
+    await tour.selectTab('All');
+    await tour.selectDateRange(from, to);
+    await tour.expectDateRange(from, to);
+    baseline = await rowsInRange(tour, from, to);
+  });
+
+  test('Switching back to All restores the baseline', async ({ page }) => {
+    const tour = new TourPage(page);
+    await tour.selectTab('Approved');
+    await tour.expectRecords(baseline.filter(row => row.status === 'Approved'));
+    await tour.selectTab('All');
+    await tour.expectRecords(baseline);
+  });
+
+  for (const status of ['Approved', 'Rejected'] as const) {
+    test(`${status} tab shows exactly the ${status} records in range`, async ({ page }) => {
+      const tour = new TourPage(page);
+      await tour.selectTab(status);
+      await tour.expectRecords(baseline.filter(row => row.status === status));
+    });
+  }
+
+  test('Pending tab shows only Pending records, including those in range', async ({ page }) => {
+    const tour = new TourPage(page);
+    await tour.selectTab('Pending');
+    // Pending lists everything awaiting a decision, regardless of the selected range.
+    const pendingInRange = baseline.filter(row => row.status === 'Pending');
+    await expect.poll(async () => {
+      const rows = await tour.readRows();
+      return rows.length >= pendingInRange.length && rows.every(row => row.status === 'Pending');
+    }, { timeout: 30_000, message: 'Pending tab must list only Pending records' }).toBe(true);
+    const shown = (await tour.readRows()).map(row => JSON.stringify(row));
+    for (const row of pendingInRange) {
+      expect(shown, `${row.employeeName} ${row.date} missing from Pending`).toContain(JSON.stringify(row));
+    }
+  });
+
+  test('All tab records have valid dates and known statuses', async () => {
+    for (const row of baseline) {
+      expect(row.date).toMatch(/^\d{2}-\d{2}-\d{4}$/);
+      const iso = isoFromTourDate(row.date);
+      expect(new Date(`${iso}T00:00:00Z`).toISOString().slice(0, 10), row.date).toBe(iso);
+      expect(['Pending', 'Approved', 'Rejected'], `${row.employeeName}: ${row.status}`).toContain(row.status);
+    }
+  });
+
+  test('Narrowing the date range filters Tour records', async ({ page }) => {
+    // Three range selections in one test.
+    test.slow();
+    const tour = new TourPage(page);
+    const narrowFrom = daysBefore(to, data.narrowDays - 1);
+
+    await tour.selectDateRange(narrowFrom, to);
+    await tour.expectRecords(baseline.filter(row => isoFromTourDate(row.date) >= narrowFrom));
+
+    await tour.selectDateRange(from, to);
+    await tour.expectRecords(baseline);
+  });
+
+  test('Date range picker closes without changing the range', async ({ page }) => {
+    const tour = new TourPage(page);
+    const dialog = await tour.openDatePicker();
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    await expect(tour.dateButton).toHaveAttribute('aria-expanded', 'false');
+    await tour.expectDateRange(from, to);
+  });
+
+  test('Export downloads a nonempty file', async ({ page }, testInfo) => {
+    const tour = new TourPage(page);
+    await expect(tour.exportButton).toBeEnabled();
+    const pending = page.waitForEvent('download');
+    await tour.exportButton.click();
+    const download = await pending;
+    expect(await download.failure()).toBeNull();
+    const file = testInfo.outputPath(download.suggestedFilename());
+    await download.saveAs(file);
+    expect((await stat(file)).size).toBeGreaterThan(0);
+    // Export format has not been supplied; don't assume this is a CSV report.
+    await testInfo.attach('tour-export', { body: await readFile(file), contentType: 'application/octet-stream' });
+  });
 });

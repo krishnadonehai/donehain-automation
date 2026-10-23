@@ -30,7 +30,7 @@ export default defineConfig({
     baseURL,
     browserName: 'chromium',
     headless: process.env.HEADLESS !== 'false',
-    viewport: null,
+    viewport: process.env.HEADLESS !== 'false' ? { width: 1920, height: 1080 } : null,
     launchOptions: {
       args: ['--start-maximized'],
       slowMo: Number(process.env.SLOW_MO ?? 0),
