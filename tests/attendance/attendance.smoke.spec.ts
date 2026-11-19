@@ -7,7 +7,7 @@ test.describe('Attendance Smoke Tests @smoke @regression', () => {
     const attendance = new AttendancePage(page);
 
     await attendance.open();
-
+ 
     await expect(attendance.searchInput).toBeVisible();
     await expect(attendance.table).toBeVisible();
     await expect(attendance.dateButton).toBeVisible();

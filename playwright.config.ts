@@ -7,6 +7,10 @@ if (new URL(baseURL).origin !== 'https://app.st.donehai.com') {
   throw new Error('This fixed-OTP project is configured for https://app.st.donehai.com only.');
 }
 
+// --headed wins over HEADLESS=true so a watched run uses the real window.
+const headless = process.env.HEADLESS === 'true' && !process.argv.includes('--headed');
+const slowMo = Number(process.env.SLOW_MO ?? (headless ? 0 : 1000));
+
 export default defineConfig({
   testDir: './tests',
   timeout: 90_000,
@@ -27,14 +31,13 @@ export default defineConfig({
   use: {
     baseURL,
     browserName: 'chromium',
-    headless: process.env.HEADLESS === 'true',
-  // Headless has no window to maximize and defaults to 800x600, which clips the date pickers.
-  viewport: process.env.HEADLESS === 'true' ? { width: 1920, height: 1080 } : null,
-launchOptions: {
-  args: ['--start-maximized'],
-  slowMo: Number(process.env.SLOW_MO ?? 700),
-  
-},
+    headless,
+    // A fixed viewport keeps the window at that size. Headed runs use the maximized window.
+    viewport: headless ? { width: 1920, height: 1080 } : null,
+    launchOptions: {
+      args: headless ? [] : ['--start-maximized'],
+      slowMo,
+    },
     acceptDownloads: true,
     screenshot: 'only-on-failure',
     video: 'off',
@@ -52,7 +55,6 @@ launchOptions: {
     use: {
       storageState: 'playwright/.auth/user.json',
     },
-    dependencies: ['setup'],
   },
 ],
 });

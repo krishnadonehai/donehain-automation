@@ -37,7 +37,7 @@ test.describe('Attendance Filter Tests @regression', () => {
     });
   }
 
-  for (const status of ['Present', 'Absent']) {
+  for (const status of data.statuses) {
     test(`Status ${status} returns expected employees`, async ({ page }) => {
       const attendance = new AttendancePage(page);
 

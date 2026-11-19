@@ -61,8 +61,17 @@ export class TourPage {
 
   async open(): Promise<void> {
     await this.page.goto('/beats');
-    await expect(this.tab('All')).toBeVisible({ timeout: 30_000 });
-    await expect(this.table).toBeVisible();
+    await expect(this.page.getByRole('heading', { name: 'Tour', exact: true })).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(this.tab('All')).toBeVisible();
+    // DoneHai defaults to Pending; that tab can show an empty state with no table.
+  }
+
+  /** Empty Pending/Rejected tabs hide the table entirely. */
+  async expectEmptyState(message = /No .+ for this period/i): Promise<void> {
+    await expect(this.page.getByText(message)).toBeVisible();
+    await expect(this.table).toHaveCount(0);
   }
 
   async selectTab(status: TourStatus): Promise<void> {

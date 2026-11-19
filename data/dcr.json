@@ -1,0 +1,63 @@
+{
+  "module": "DCR",
+  "path": "/daily-calls",
+  "range": {
+    "from": "2026-09-01",
+    "to": "2026-10-31"
+  },
+  "search": {
+    "employeeName": "Milind Srivastava",
+    "employeeCode": "1003",
+    "noMatch": "zz_dcr_invalid_748159"
+  },
+  "expectedHeaders": [
+    "Date",
+    "Employee",
+    "Manager",
+    "Planned Visit",
+    "Actual Visit",
+    "Visit Type",
+    "Travel Actual",
+    "Travel Estimated",
+    "Claims",
+    "Claim Status"
+  ],
+  "rows": [
+    {
+      "date": "30-Oct-2026",
+      "employee": "Milind Srivastava (1003)",
+      "manager": "Vaibhav Pandey (1001)",
+      "planned": "0",
+      "actual": "0",
+      "visitType": "—",
+      "travelActual": "0 km",
+      "travelEstimated": "—",
+      "claims": "₹0",
+      "status": "Submitted"
+    },
+    {
+      "date": "28-Oct-2026",
+      "employee": "Milind Srivastava (1003)",
+      "manager": "Vaibhav Pandey (1001)",
+      "planned": "25",
+      "actual": "3",
+      "visitType": "HQ",
+      "travelActual": "0 km",
+      "travelEstimated": "22.9 km",
+      "claims": "₹200",
+      "status": "Approved"
+    },
+    {
+      "date": "27-Oct-2026",
+      "employee": "Milind Srivastava (1003)",
+      "manager": "Vaibhav Pandey (1001)",
+      "planned": "25",
+      "actual": "1",
+      "visitType": "HQ",
+      "travelActual": "2.3 km",
+      "travelEstimated": "22.9 km",
+      "claims": "₹207",
+      "status": "Approved"
+    }
+  ]
+}

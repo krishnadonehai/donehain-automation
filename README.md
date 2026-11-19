@@ -40,32 +40,29 @@ after the open-calendar markup is available.
 
 ```powershell
 npm run typecheck
+npm run test:login
 npm run test:attendance
 npm run report
 ```
 
-This runs login ONCE as a setup dependency, then ten separate Attendance tests.
+`npm run test:login` signs in once and saves the session. `npm run test:attendance` uses that saved session and does not log in again.
 The default visible Chromium browser is maximized with actions slowed by 700 ms.
 Change `SLOW_MO=0` for normal speed or `HEADLESS=true` for hidden execution.
 
 Other useful commands:
 
 ```powershell
-# Only generate a fresh session:
+# Sign in again after the saved session expires:
 npm run test:login
 
-# Run Attendance with the latest saved session, without entering OTP:
+# Same attendance run, kept for older notes:
 npm run test:reuse
-
-# Run login plus one selected test:
-npx playwright test --project=chromium --grep "Search mr"
 
 # View the previous HTML report:
 npx playwright show-report
 ```
 
-When the saved session is rejected/expired, run `npm run test:login` before
-`npm run test:reuse`, or use `npm run test:attendance` normally. Do not run
+When the saved session is rejected or expired, run `npm run test:login` again, then rerun the tests. Do not run
 multiple commands/windows using this account at the same time.
 
 ## Folder structure

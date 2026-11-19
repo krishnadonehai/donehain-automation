@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Sent by the VPS after docker compose and a staging readiness check.
+  repository_dispatch:
+    types: [run-staging-tests]
   schedule:
     # 02:00 IST nightly regression
     - cron: "30 20 * * *"
@@ -51,7 +54,7 @@ jobs:
         run: npm run test:st-ci
 
   e2e:
-    name: E2E (${{ github.event_name == 'pull_request' && 'smoke' || inputs.suite || 'regression' }})
+    name: E2E (${{ github.event_name == 'repository_dispatch' && 'attendance' || github.event_name == 'pull_request' && 'smoke' || inputs.suite || 'regression' }})
     needs: checks
     # Fork PRs have no access to the staging secrets.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -70,7 +73,7 @@ jobs:
       HEADLESS: "true"
       SLOW_MO: "0"
       CI: "true"
-      SUITE: ${{ github.event_name == 'pull_request' && 'smoke' || inputs.suite || 'regression' }}
+      SUITE: ${{ github.event_name == 'repository_dispatch' && 'attendance' || github.event_name == 'pull_request' && 'smoke' || inputs.suite || 'regression' }}
 
     steps:
       - name: Checkout code
@@ -98,8 +101,16 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Login once and save the session
+        run: npx playwright test --project=setup
+
       - name: Run ${{ env.SUITE }} tests
-        run: npx playwright test tests/attendance/ tests/tour/ --grep "@${SUITE}" --project=chromium
+        run: |
+          if [ "$SUITE" = "attendance" ]; then
+            npx playwright test tests/attendance/ --project=chromium
+          else
+            npx playwright test tests/dashboard/ tests/attendance/ tests/tour/ tests/menu/ tests/stp/ tests/mtp/ tests/reports/ tests/claims/ tests/dcr/ --grep "@${SUITE}" --project=chromium
+          fi
 
       - name: Publish Test Results
         if: always()

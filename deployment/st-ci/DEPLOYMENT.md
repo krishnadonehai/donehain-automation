@@ -127,3 +127,20 @@ npm run typecheck
 ```
 
 Do not enable `ST_TRAFFIC_SWITCH_ENABLED` until isolation, DB setup, side-effect suppression, and rollback drills succeed on ST. Even when enabled, `switch-traffic` refuses unless the candidate's manifest records `db_init_status=ok` (schema gate passed) and `playwright_result=passed`. Without a switch, the candidate is always cleaned up at the end of the run.
+
+## Post-deploy tests on public staging
+
+The current Hostinger deploy stays `docker compose up -d --build`. It does not deploy production. After that command succeeds, run [scripts/dispatch-staging-tests.sh](./scripts/dispatch-staging-tests.sh) on the VPS.
+
+The script waits until `https://app.st.donehai.com` responds, then sends `repository_dispatch` event `run-staging-tests` to `krishnadonehai/donehain-automation`. If staging does not respond, it does not send the event.
+
+Store the token only on the VPS:
+
+```bash
+printf 'AUTOMATION_DISPATCH_TOKEN=github_pat_...\n' > ~/.donehai-dispatch.env
+chmod 600 ~/.donehai-dispatch.env
+```
+
+The token is limited to the automation repository, with Contents read and write. GitHub Actions then runs login and `tests/attendance/` against public staging and uploads `playwright-report/` and `test-results/`.
+
+A push to `main` in the automation repository still starts the same workflow and runs the smoke or regression suite against the existing staging URL. Secrets on that repository: `BASE_URL`, `TEST_IDENTIFIER`, `TEST_OTP`.

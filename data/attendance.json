@@ -1,10 +1,93 @@
-
 {
-  "date": "2026-10-13",
+  "date": "2026-11-18",
   "employees": [
+    {
+      "id": "1001",
+      "name": "Vaibhav Pandey",
+      "designation": "Area Sales Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "1002",
+      "name": "Sandeep Siddhu",
+      "designation": "Area Sales Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "1003",
+      "name": "Milind Srivastava",
+      "designation": "MR",
+      "status": "Absent"
+    },
+    {
+      "id": "1006",
+      "name": "Raghav Singh",
+      "designation": "Zonal Sales Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "1007",
+      "name": "Priya Singh",
+      "designation": "Regional Sales Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "1008",
+      "name": "Ronak Kumar",
+      "designation": "Regional Sales Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "1009",
+      "name": "Shashank Meena",
+      "designation": "Area Sales Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "1010",
+      "name": "Ravi Kumar",
+      "designation": "Area Sales Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "1011",
+      "name": "Ramesh Gupta",
+      "designation": "MR",
+      "status": "Absent"
+    },
+    {
+      "id": "101132",
+      "name": "Krishna Mandal",
+      "designation": "MR",
+      "status": "Absent"
+    },
+    {
+      "id": "50014",
+      "name": "Mahi Gupta",
+      "designation": "MR",
+      "status": "Absent"
+    },
+    {
+      "id": "5002",
+      "name": "Vivaan Reddy",
+      "designation": "Sales Executive",
+      "status": "Absent"
+    },
+    {
+      "id": "EMP0021",
+      "name": "Pintu Ahir",
+      "designation": "MR",
+      "status": "Absent"
+    },
     {
       "id": "TEST-001",
       "name": "Test One",
+      "designation": "Manager",
+      "status": "Absent"
+    },
+    {
+      "id": "TEST-002",
+      "name": "Test Two",
       "designation": "Manager",
       "status": "Absent"
     },
@@ -19,16 +102,35 @@
       "name": "Test Four",
       "designation": "MR",
       "status": "Absent"
+    },
+    {
+      "id": "TEST-005",
+      "name": "Test Five",
+      "designation": "MR",
+      "status": "Absent"
     }
   ],
   "searchQuery": "mr",
   "searchExpectedIds": [
+    "1003",
+    "1011",
+    "101132",
+    "50014",
+    "EMP0021",
     "TEST-003",
-    "TEST-004"
+    "TEST-004",
+    "TEST-005"
   ],
   "departments": [
+    "Field Sales",
     "Management",
+    "QA Automation",
     "Sales"
+  ],
+  "statuses": [
+    "Present",
+    "Half Day",
+    "Absent"
   ],
   "noMatchQuery": "zz_no_employee_qa_748159"
 }

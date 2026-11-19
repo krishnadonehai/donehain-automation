@@ -144,7 +144,7 @@ for (const department of data.departments) {
   );
 }
 
-for (const status of ['Present', 'Absent']) {
+for (const status of data.statuses) {
   test(
     `Status ${status} filters employee records`,
     async ({ page }) => {

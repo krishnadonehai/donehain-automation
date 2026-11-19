@@ -1,0 +1,162 @@
+
+{
+  "module": "Claims",
+  "path": "/claims",
+  "monthlyPath": "/claims/monthly",
+
+  "search": {
+    "byName": {
+      "query": "Test Four",
+      "expectedName": "Test Four"
+    },
+    "byEmployeeId": {
+      "query": "TEST-004",
+      "expectedEmployeeId": "TEST-004"
+    },
+    "byClaimId": {
+      "query": "1001",
+      "expectedClaimId": "1001"
+    },
+    "noMatch": {
+      "query": "zz_invalid_claim_qa_748159"
+    }
+  },
+
+  "statuses": [
+    "All",
+    "Rejected",
+    "Pending",
+    "Approved",
+    "System approved"
+  ],
+
+  "expectedHeaders": [
+    "Claim ID",
+    "Date",
+    "Name",
+    "Emp ID",
+    "Est Distance (km)",
+    "Est Amount (₹)",
+    "Distance traveled (km)",
+    "Travel Allowance (₹)",
+    "Daily Allowance (₹)",
+    "Total (₹)",
+    "Status",
+    "Actions"
+  ],
+
+  "claims": [
+    {
+      "claimId": "1001",
+      "date": "23 Oct 2026",
+      "name": "Test Five",
+      "employeeId": "TEST-005",
+      "estimatedDistance": 35.9,
+      "estimatedAmount": 107.73,
+      "distanceTraveled": 2.1,
+      "travelAllowance": 6.30,
+      "dailyAllowance": 200.00,
+      "total": 206.30,
+      "status": "System approved",
+      "flagged": false
+    },
+    {
+      "claimId": "1000",
+      "date": "23 Oct 2026",
+      "name": "Test Four",
+      "employeeId": "TEST-004",
+      "estimatedDistance": 35.9,
+      "estimatedAmount": 107.73,
+      "distanceTraveled": 0.0,
+      "travelAllowance": 0.00,
+      "dailyAllowance": 200.00,
+      "total": 200.00,
+      "status": "System approved",
+      "flagged": false
+    },
+    {
+      "claimId": "998",
+      "date": "22 Oct 2026",
+      "name": "Test Three",
+      "employeeId": "TEST-003",
+      "estimatedDistance": null,
+      "estimatedAmount": null,
+      "distanceTraveled": 0.0,
+      "travelAllowance": 0.00,
+      "dailyAllowance": null,
+      "total": 0.00,
+      "status": "Approved",
+      "flagged": false
+    },
+    {
+      "claimId": "997",
+      "date": "22 Oct 2026",
+      "name": "Pintu Ahir",
+      "employeeId": "EMP0021",
+      "estimatedDistance": null,
+      "estimatedAmount": null,
+      "distanceTraveled": 0.1,
+      "travelAllowance": 0.24,
+      "dailyAllowance": null,
+      "total": 0.24,
+      "status": "Pending",
+      "flagged": true,
+      "flagReason": "Over estimated distance"
+    },
+    {
+      "claimId": "996",
+      "date": "22 Oct 2026",
+      "name": "Milind Srivastava",
+      "employeeId": "1003",
+      "estimatedDistance": 22.9,
+      "estimatedAmount": 68.70,
+      "distanceTraveled": 0.0,
+      "travelAllowance": 0.00,
+      "dailyAllowance": 200.00,
+      "total": 200.00,
+      "status": "System approved",
+      "flagged": false
+    },
+    {
+      "claimId": "988",
+      "date": "12 Oct 2026",
+      "name": "Milind Srivastava",
+      "employeeId": "1003",
+      "estimatedDistance": 22.9,
+      "estimatedAmount": 68.70,
+      "distanceTraveled": 25.7,
+      "travelAllowance": 77.10,
+      "dailyAllowance": 200.00,
+      "total": 277.10,
+      "status": "Rejected",
+      "flagged": true,
+      "flagReason": "Over estimated distance"
+    },
+    {
+      "claimId": "991",
+      "date": "16 Oct 2026",
+      "name": "Krishna Mandal",
+      "employeeId": "101132",
+      "estimatedDistance": 35.9,
+      "estimatedAmount": 107.73,
+      "distanceTraveled": 0.0,
+      "travelAllowance": 0.00,
+      "dailyAllowance": 200.00,
+      "total": 200.00,
+      "status": "System approved",
+      "flagged": false
+    }
+  ],
+
+  "amountValidation": {
+    "formula": "travelAllowance + dailyAllowance = total",
+    "decimalPlaces": 2
+  },
+
+  "actions": {
+    "view": true,
+    "approve": true,
+    "reject": true,
+    "monthlyRegister": true
+  }
+}

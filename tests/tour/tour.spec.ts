@@ -41,9 +41,11 @@ test.describe('Tour Smoke Tests @smoke @regression', () => {
     await expect(tour.importButton).toBeVisible();
     await expect(tour.exportButton).toBeVisible();
 
+    // Pending is often empty for the default range; assert headers on All.
     await tour.selectTab('All');
+    await expect(tour.table).toBeVisible({ timeout: 30_000 });
     await expect(tour.table.getByRole('columnheader')).toHaveText([
-      '', 'Emp ID', 'Emp Name', 'Date', 'Type', 'HQ', 'Cluster', 'Status', 'Actions',
+      '', 'Emp ID', 'Emp Name', 'Date', 'Type', 'Headquarter', 'Station', 'Status', 'Actions',
     ]);
   });
 });
@@ -55,6 +57,7 @@ test.describe('Tour Regression Tests @regression', () => {
     const tour = new TourPage(page);
     await tour.open();
     await tour.selectTab('All');
+    await expect(tour.table).toBeVisible({ timeout: 30_000 });
     await tour.selectDateRange(from, to);
     await tour.expectDateRange(from, to);
     baseline = await rowsInRange(tour, from, to);

@@ -1,0 +1,104 @@
+
+{
+  "module": "RCPA",
+  "path": "/rcpa",
+  "rangeDays": 60,
+  "search": {
+    "reportId": "477",
+    "poiId": "DDP160",
+    "mrName": "Milind Srivastava",
+    "noMatch": "zz_rcpa_invalid_748159"
+  },
+  "expectedHeaders": [
+    "Id",
+    "Date",
+    "POI",
+    "Customer Type",
+    "MR",
+    "Status",
+    "Signals",
+    "Competitor",
+    "POIs",
+    "Preview"
+  ],
+  "reports": [
+    {
+      "id": "477",
+      "date": "26 Oct 2026",
+      "poiId": "DDP160",
+      "poiName": "Dr. Advait Patel",
+      "customerType": "Doctor",
+      "mr": "Milind Srivastava",
+      "status": "Finalized",
+      "signals": 5,
+      "competitor": "0",
+      "pois": 1,
+      "preview": "3 risks"
+    },
+    {
+      "id": "476",
+      "date": "26 Oct 2026",
+      "poiId": "DDP158",
+      "poiName": "Diya Kumar Medicos",
+      "customerType": "Chemist",
+      "mr": "Milind Srivastava",
+      "status": "Reviewed",
+      "signals": 4,
+      "competitor": "zincovit",
+      "pois": 3,
+      "preview": "3 risks · 1 win · zincovit"
+    },
+    {
+      "id": "475",
+      "date": "26 Oct 2026",
+      "poiId": "DDP156",
+      "poiName": "Aarav Banerjee Medicos",
+      "customerType": "Chemist",
+      "mr": "Milind Srivastava",
+      "status": "Needs Review · 1",
+      "signals": 3,
+      "competitor": "0",
+      "pois": 3,
+      "preview": "2 risks · 1 win"
+    },
+    {
+      "id": "474",
+      "date": "23 Oct 2026",
+      "poiId": "DDP017",
+      "poiName": "Dr. Aarav Gupta",
+      "customerType": "Doctor",
+      "mr": "Test Five",
+      "status": "Finalized",
+      "signals": 4,
+      "competitor": "0",
+      "pois": 1,
+      "preview": "3 risks"
+    },
+    {
+      "id": "473",
+      "date": "23 Oct 2026",
+      "poiId": "DDP023",
+      "poiName": "Vivaan Kapoor Medicos",
+      "customerType": "Chemist",
+      "mr": "Test Five",
+      "status": "Needs Review · 2",
+      "signals": 0,
+      "competitor": "0",
+      "pois": 0,
+      "preview": "1 claim sent for manager review."
+    },
+    {
+      "id": "460",
+      "date": "16 Oct 2026",
+      "poiId": "DDP003",
+      "poiName": "Dr. Krishna Nair",
+      "customerType": "Doctor",
+      "mr": "Krishna Mandal",
+      "status": "Finalized",
+      "signals": 0,
+      "competitor": "0",
+      "pois": 0,
+      "preview": "—"
+    }
+  ]
+}
